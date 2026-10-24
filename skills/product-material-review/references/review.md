@@ -1,110 +1,76 @@
 # 审阅文件与依据
 
-本文件供 AI 生成审阅记录时使用。用户只需提供资料、回答实质业务问题；不要把填写 JSON 作为业务用户的前置任务。
+AI 维护审阅记录，用户提供文件及必要业务确认，不需要手写 JSON。新模板任务采用 `editing_policy=template_minimal`：模板原句是基线，合同是目标事实来源。
 
-## 读取顺序
+## 建立审阅记录
 
-1. `task.target_product` 与 `contract.source`：核对目标、主合同版本和来源位置。
-2. `contract.facts`、原文块和 `contract.coverage`：读取候选的完整上下文、条件、例外、份额、单位及引用条款。`candidate` 不代表已核实；未检出不等于“无”或“0”。
-3. 任务模式、物料来源及准备记录、`materials[].template_source_product`、`destination_product`、`template_selection`、`regions` 与 `slots`：Word 槽位基于清洁基线；原件有历史修订时，核对已接受全部旧修订的准备副本、原件/副本双哈希及原批注保留情况。模板模式分别确认源模板主体和合同目标；二者不同名不构成错误。`target` 是选中的模板区，`other` 保留为未选区，`ambiguous` 需重新核对选择。文件封面或宽泛简称不能授权全文件替换。
-4. `requirement_candidates`、`checks`：按 [需求发现与合同回查](requirements.md) 检查每个模板槽位，补充或拆分原子需求，先判适用性，再回查缺失依据。自动检查及种子不是完整需求或事实核验清单。
+从本任务 `review.template.json` 开始，保留 `schema_version`、`task_id`、全部 `source_hashes` 及已有审阅记录。读取合同目标与来源、模板主体/准备记录、选中槽位及需求候选；用精简视图按需回查，完整要素表不作为前置输出。
 
-`task.json` 保存完整信息。AI 优先通过 `review-packet` 按概览、原文、槽位及字段读取，避免反复读取完整 JSON/CSV；批查及紧凑检查见 [CLI](cli.md#高效读取与批量回查)。CSV 是便于查看的导出；为避免 Excel 公式执行而增加的文本保护前缀不能复制进回写文字。
-
-## 维护 review.json
-
-从本任务的 `review.template.json` 建立审阅文件，原样保留 `schema_version`、`task_id` 和全部 `source_hashes`。后续继续编辑同一个审阅文件，不覆盖已完成的决定。AI 负责以下记录：
-
-| 记录 | 用途 | 必需信息 |
-| --- | --- | --- |
-| `supplements` | 保存合同外的本次有效补充依据 | 唯一 `supplement_id`；与目标完全一致的 `product_name`；`field_id`；非空 `value`；可追溯 `source_note` |
-| `new_fields`、`contract_rechecks` | 定义任务内新字段并登记合同补提 | 精确定义；本合同块与引文、来源哈希、审阅理由，见 [需求参考](requirements.md) |
-| `requirements` | 逐项核对模板原子需求 | 槽位、要求、适用状态、依据和最终表达，见 [需求参考](requirements.md) |
-| `decisions` | 指定局部替换或 Word/PPT 批注 | 唯一 `decision_id`；`material_id`；`slot_id`；`kind`；精确原文 `before`；新文/批注 `after`；`reason`；`reviewed: true`；`evidence`；模板事实替换还需 `requirement_ids` |
-| `resolutions` | 结案真正解决的具体检查 | `check_id`；说明如何解决的 `reason`；`reviewed: true`；`evidence` |
-| `slot_dispositions` | 模板模式逐个选中内容槽位的最终处置 | `material_id`；`slot_id`；`action`；完整 `final_text`；`decision_ids`；`requirement_ids`；`discovery_reviewed: true`；`discovery_reason`；`evidence`；`reason`；`reviewed: true` |
-| `delivery_plan` | 必要时指定每份物料的实际类别和审核后的源页码 | 以实际 `material_id` 为键的对象；`kind` 为 `ppt`、`poster` 或 `onepager`；手动 `pages` 须有 `review_reason` |
-
-`reviewed: true` 表示该条已完成实质审阅，不表示用户逐条点击批准。已有任务授权足以执行其中有依据的操作；未决业务事实继续保持待核。
-
-### 补充依据
-
-`supplements` 与合同事实分开保存，运行时标记为 `user_supplied`。只用于回查后仍需的本次外部信息；合同中补提的内容必须登记为 `contract_rechecks`。将需求列为 `needs_external` 前，填写其 `contract_search.queries`、`source_sha256` 和具体 `conclusion`，由 CLI 回放检索；未记录回查仍按 `unresolved` 处理，不能直接变成给用户的缺项。检索记录不证明语义上的不存在，仍须 AI 阅读命中及上下文，详见 [需求参考](requirements.md)。来源说明应包含资料名称、日期或版本、具体位置、适用渠道/份额及用户提供或确认的信息。仅写“已确认”不能解释事实依据；CLI 不能证明所填内容真实、完整或有效。
-
-对缺项向用户展示：
-
-| 物料及位置 | 缺项或冲突 | 已有依据 | 需要补充的信息 |
-| --- | --- | --- | --- |
-| 当前物料的实际页码/标签 | 例如本次渠道销售费率 | 列明已查合同位置及其一般规则；模板旧值仅说明需求 | 本次适用的费率、条件和带日期的依据 |
-
-模板模式中，一般缺项执行待补占位并保留未决检查。指定例外是业绩报酬及代销机构销售评级：合同回查未给出具体值时，沿用模板并实际加注，记录为独立 `template_retained`，详见 [模板保留例外](template-retention.md)。其他旧日期、费用或渠道信息不能因此沿用；不能把缺失值规范化成“无费用”或把计算日期当作公告日期。
-
-### 模板槽位的完整处置
-
-为交付范围内每个选中的必需内容槽位填写一项 `slot_dispositions`，包括标题、空白值、未映射字段以及需要保留的静态标签。`requirement_ids` 关联本槽全部原子需求；`discovery_reviewed` 和 `discovery_reason` 说明已实际逐句检查并完整拆分，不能把自动种子当作全部需求。`final_text` 是该槽位执行全部决定后的完整文字，不是单条替换片段；`decision_ids` 精确包含本槽位的全部文字替换决定，不含 `comment`。最终文字必须与输出一致，不能只填写处置记录而省略实际改文。程序无法安全填入的空白或复杂结构保留受阻/未完成，不能因原本为空而跳过审阅。
-
-| `action` | 使用条件及处理 |
+| 记录 | 用途与关键字段 |
 | --- | --- |
-| `rewrite` | 按合同、合同补提或有效补充重写；引用真实替换决定，并逐需求绑定事实依据及最终表达 |
-| `retain_verified` | 最终值与模板恰好相同，每项内容经本合同或有效补充核实后保留；相同数值不是证据 |
-| `retain_template_exception` | 合法指定缺项原样保留且有实际批注；每项需求分别记录合同核实或模板保留，不能把例外扩到整槽其他内容 |
-| `pending_placeholder` | 暂无目标事实；以 `placeholder` 决定把整槽换成 `【待补充】`，仍不能算完成 |
-| `not_applicable` | 整槽均有合同依据证明不适用；最终文字为 `不适用` 或空串，并绑定实际替换；仅子需求不适用时在 `requirements` 记录，并按剩余需求重写整槽 |
-| `retain_static` | 仅保留程序识别为标签的文字或受支持的通用标题；仍须显式审阅，不能用于具体产品名称、数值、日期或条款 |
+| `supplements` | 本次真实外部补充；`supplement_id`、目标 `product_name`、`field_id`、`value`、可追溯 `source_note`。不把模板旧值伪装成补充 |
+| `new_fields`、`contract_rechecks` | 定义新增需求及绑定合同原文的补提，见 [需求参考](requirements.md) |
+| `requirements` | 每项事实/参数的适用性、依据、状态与实际 `rendered_text` |
+| `decisions` | 精确局部替换、批注或黄色标记；同槽重复值使用零基 `start` |
+| `slot_dispositions` | 最终完整槽文和相关需求；`final_text` 是实际结果快照，不是重写整格的指令 |
+| `delivery_plan` | 必要时指定实际物料 `kind` 和审核后的源页码 |
 
-事实处置须有匹配需求的 `fact`、`recheck` 或 `supplement`；不适用必须包含合同事实或合同补提依据。`material` 只说明模板要求或占位来源，不能证明目标内容。未知槽位先识别含义，映射已有字段或在 `new_fields` 定义新字段，再在需要映射的处置记录及对应替换决定中填写 `target_field_id` 和 `field_mapping_reason`。不能靠 `retain_static` 跳过；未检出或不知道不等于不适用。
+`reviewed: true` 表示 AI 已实质审阅该记录，不要求用户逐条批准，也不表示待确认参数已经变成事实。模板与合同产品不同名不构成身份冲突；目标按合同，模板按已选自身主体。
 
-按“下一开放期首个开放日为某日”的模板表达时，先判断目标产品是否有该类开放安排。适用但合同仅给一般周期时，回查后仍缺本次日期才请用户补充；合同明确不适用时有依据地改写该要求。收到用户日期后，还需真正改正文、绑定对应决定与最终槽文；只新增补充记录或写“已解决”不能完成该槽位。
+## 槽位处置
 
-### 局部决定
+每个交付范围内必需槽位关联全部原子需求。记录包含 `material_id`、`slot_id`、`action`、完整 `final_text`、`decision_ids`、`requirement_ids`、`discovery_reviewed`、`discovery_reason`、`evidence`、`reason`、`reviewed`。采用程序已确认静态标签/通用标题的自动保留记录可以减少重复填写；具体产品名、参数和业务条款仍逐项审阅。
 
-`kind` 为 `replace_text`、`comment`，或模板模式清理缺项的 `placeholder`。`before` 必须在本次选定槽位内精确且唯一出现；Word 使用本次任务绑定的清洁基线文字，不从上传原件的历史插入/删除修订拼接。替换的 `after` 必须是字符串且确有变化；批注的 `after` 是批注正文。`placeholder` 的 `before` 必须为整槽文字，`after` 必须精确为 `【待补充】`，并绑定 `pending_placeholder` 处置；它不能写任意新事实，也不能凭占位结案。定位使用任务绑定的 `part/xpath`，不在审阅文件中自造位置。
+`decision_ids` 精确列出本槽全部正文替换决定；不包含批注或标黄。待确认需求通过自身 `comment_decision_id`、`highlight_decision_ids` 绑定实际注释。处置记录不能代替真实回写。
 
-`evidence` 中每项使用 `{ "type": "fact|recheck|supplement|material", "id": "本任务实际ID" }` 的结构；`type` 要填其中一个值：
+| `action` | 使用条件 |
+| --- | --- |
+| `rewrite` | 本槽有事实差异的局部替换；可以同时保留并标记其他缺项。不是要求重写整句 |
+| `retain_verified` | 原文与合同/有效补充一致，所有事实需求均有依据，无正文变化 |
+| `retain_marked` | 无正文变化，至少一个 `template_pending` 参数已绑定实际黄色标记和批注；仍是待确认稿 |
+| `not_applicable` | 整槽确有合同依据证明不适用，最小修改为“不适用”或移除；若仅子项不适用，修改该片段并用 `rewrite` 保留其余原文 |
+| `retain_static` | 程序识别的静态标签或受支持通用标题；不得覆盖具体事实 |
 
-- `fact`：本合同的候选事实 ID；使用前由 AI 核对完整原文与条件。
-- `recheck`：本次已验证来源绑定的合同补提 ID；原文的语义适用性由 AI 核对。
-- `supplement`：本审阅文件的补充依据 ID。
-- `material`：本任务物料 ID，可解释格式要求、待补占位或待核批注；不能单独证明目标事实或原值适用。
-- `template`：已通过指定例外校验的需求 ID，只授权原样保留及批注，不是合同事实或用户新给出的值，不授权改写。
+`retain_template_exception` 和 `pending_placeholder` 是旧格式兼容项。新模板任务不采用旧例外完成缺项，也不默认整格替换 `【待补充】`。原槽为空、不可读或结构复杂时，保留待处理状态及定位；不能凭空造一个旧值用于标黄。
 
-每条模板事实替换的 `requirement_ids` 须关联本槽已核实或有依据不适用的需求，引用的依据须来自这些需求。槽位 `field_id` 为空时，还须填写 `target_field_id` 和具体的 `field_mapping_reason`。专门的 `placeholder` 决定允许使用 `material` 依据清理未知值，但仍保留待补状态。不要只因文本相似就合并不同费率、首次/追加金额、认购/参与、自然日/工作日或不同份额。
+## 局部决定
 
-`other`、`ambiguous` 区域不会因为 `reviewed: true` 变为可编辑。身份补证或规则修正后重新分析。一个段落有多次替换时，确保范围不重叠；不要跨段拼出一个 `before`。
+评级替换先区分主体。若原句明确同时标出管理人和销售/代销机构，两类需求必须各自绑定相应主体后的准确片段；不能把正确的 R 值写到另一主体处，也不能一次替换横跨两类主体的整段。普通单一“风险等级”表述仍按字段与合同适用性核对。
 
-### 检查结案
+每条决定包含唯一 `decision_id`、`material_id`、`slot_id`、`kind`、精确 `before`、`reason`、`reviewed: true`、`evidence`。定位使用任务绑定的 `part/xpath`，不在审阅文件中自行覆盖位置。
 
-模板的 `template_content_review` 检查依赖有效槽位处置及其需求核对；其他业务检查仍需逐条审阅。只有证据实际解决对应 `check_id`，并且要求的正文改动或有依据保留实际完成时，才写入 `resolutions`。指定模板保留例外可处置相应缺项检查，仍独立披露；其他新增批注或待补占位不解决实质缺项，只补日期依据而正文仍是旧日期也不能结案。原子需求、槽位处置和一般检查分别验证，不能用一条结案记录替代全部核对。
+- `replace_text`：`after` 为有变化的新片段；模板事实替换还需关联已核实或有合同依据不适用的 `requirement_ids`。只替换实际差异，CLI 会裁掉首尾相同文字，减少 Word 修订。产品名称、数值/代码之外，若实际修改中文措辞、风险描述或适用条件，填写具体 `wording_change_reason`，说明合同依据为何要求这处最小调整；“润色”不足以说明。
+- `comment`：`after` 是简短批注正文。缺项批注须说明合同未提及该参数及“待确认”；例如“合同未提，保留模板值待确认”。Word 为锚定批注，PPT 为原生页面批注。
+- `highlight`：`color: "yellow"`，`before` 只含需提示的关键参数；以 `template` 依据绑定本需求。标黄不改文字。不可把整格原句当成一个待确认数值，也不可标黄其他重复出现但无关的值。
 
-检查有 `required_evidence_field` 时按该字段提供依据。当前开放日期等外部事实适用时，需要对应字段的本次有效补充，一般开放周期不足以证明具体日期；若该要求被合同明确排除，应通过有依据的不适用需求处理，不能虚构补充资料。不要为得到完成状态而批量结案。
+`before` 在本槽唯一时可省略 `start`；重复时填写原始槽文中的零基字符偏移 `start`。全部决定针对同一清洁基线，CLI 负责替换后的偏移换算；不要用修改后文字计算后续偏移。一个段落多处替换不能重叠，保留待确认片段与替换片段也不能重叠。不能为取得唯一匹配而扩大为整段替换。
+
+原句默认保留。同一评级主体、同一口径的 R 值与风险描述联动核对；管理人评级不能直接覆盖代销评级，投资者 C 等级另行核实。必要的条件差异或明确不收取费用可以改相应条款，不能以“最小修改”为由保留与合同明确冲突的旧事实。
+
+## 依据与待确认
+
+`evidence` 每项为 `{ "type": "fact|recheck|supplement|material|template", "id": "本任务ID" }`，实际 `type` 只取其中一个值：
+
+- `fact`：合同候选，须先核对原文、条件、单位、份额及适用性。
+- `recheck`：绑定真实合同块及来源哈希的本次补提。
+- `supplement`：用户实际提供或确认的本次有效外部依据。
+- `material`：模板要求、静态布局或待核说明的依据，不能证明目标事实。
+- `template`：本需求保留原值和注释的来源，不能授权写入新值或标为合同已核实。
+
+新增字段先定义；匹配未知槽位时填写 `target_field_id` 及 `field_mapping_reason`。同一事实可跨物料复用，原句、格式、跨度及缺项标记逐物料绑定。
+
+日期、代码、费用等缺项经合同回查后保留原值，使用 `template_pending`，结构见 [缺项保留与标黄](template-retention.md)。没有命中不证明合同未提；原文不可读、来源冲突、尚未查清分别记录，不能强行转成待确认原值。用户无需先补齐才生成已标注的稿件。收到有效补充后重新核对、局部改值，并撤销相应待确认注释状态；仅新增补充记录不等于改文已完成。
+
+## 检查结案
+
+只有正文改动或有依据保留确实落实，才给对应检查写 `resolutions`。`template_pending` 始终保留未决状态；新增批注或标黄不是实质缺项结案。一般开放周期不能证明本次日期，计算日期不能冒充公告日期。清单分别报告“已修改”及“保留原值待确认”。
 
 ## 交付计划
 
-AI 核对每份模板的实际用途和主体页范围。默认分类或安全建议明确时无需重复指定；分类不准或需要显式选页时，在审阅文件加入 `delivery_plan`：
+默认分类和安全选页明确时不必重复填写；否则由 AI 设置 `review.delivery_plan`，以实际 `material_id` 为键，值含 `kind: "ppt"|"poster"|"onepager"`，PPTX 手动页码另含升序去重的 `pages` 和具体 `review_reason`。DOCX 不填 `pages`。
 
-```json
-{
-  "delivery_plan": {
-    "本任务的PPT物料ID": {
-      "kind": "ppt",
-      "pages": [2, 3],
-      "review_reason": "已逐页确认两页均为选中模板主体的要素表及续表，无底层或其他产品内容"
-    },
-    "本任务的海报物料ID": {
-      "kind": "poster"
-    }
-  }
-}
-```
-
-页码仅示范结构，仅用于 PPTX，执行时使用本次原文件的实际 1-based 页码，升序且不重复；DOCX 不填写 `pages`。显式页码必须有非空、具体的 `review_reason`；`kind` 本身不改变可编辑主体或页范围。PPTX 格式的一页通、海报也要通过相同安全选页检查，不能靠分类放行混页或未选产品。
-
-所有类型先按合同替换文件名中的产品名称，保留可靠的模板渠道、日期和类型信息；`ppt` 再追加一次“产品要素”，`onepager` 和 `poster` 不额外追加；同名时用物料 ID 子目录区分，文件名不追加 ID 或审阅状态。`apply` 自动生成 `internal/` 完整稿、`delivery/` 用户文件和交付清单；受阻项不生成替代成品。最终验收绑定用户实际收到的文件，详见 [验收与交付](qa-and-delivery.md)。
+PPT 交付所选主体全部要素页及续页，信托底层和其他产品仍排除；不能以手动页码省略已识别或待核续页。混页/主体归属待核先解决范围，不交付完整稿绕过。文件名产品按合同更新并保留可靠模板渠道、日期和类型；普通 PPT 追加一次“产品要素”。规则见 [验收与交付](qa-and-delivery.md)。
 
 ## 编辑限制
 
-Word 默认先在工作副本接受原有全部修订，再按清洁基线生成本次真实删除/插入修订和锚定批注；上传原件可追溯，原批注保留并允许追加，本次新修订保留供用户审阅。含历史修订时须由 Windows Microsoft Word 原生 `AcceptAllRevisions` 完成；无 Word 或准备失败时受阻，不能直接沿用旧历史继续回写或交付。合同不执行此操作。
-
-PPT 支持局部文字替换及按页位置附着的传统原生批注，保留旧批注；现代线程批注或未知结构会明确受阻。跨段、复杂域、书签/批注边界、超链接或含换行/制表符等结构仍可能受阻；查看 `verification.issues`，不要在程序失败后直接重建整篇/整页绕过局部范围。准备后意外出现的修订或文件变化需重新核对，不能在其内部继续套写本次修订。
-
-需要更复杂编辑时保留已授权的内容与区域边界，采用合适的 Office 编辑方法并重新验证；无法安全处理的部分明确交付为待处理项。
+Word 先在副本原生接受全部历史修订，原件及原批注保留，再生成本次真实修订、黄色标记和批注；本轮新修订不自动接受。PPT 支持局部文字、标黄及传统原生批注，现代线程批注或未知结构可能受阻。跨段、复杂域、书签/批注边界、超链接或换行等结构不能安全处理时说明具体位置；不重建整篇或整页绕过。更复杂编辑仍须遵守原授权区域并重新验证。
