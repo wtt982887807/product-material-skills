@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 import shutil
 
-from material_task import ReviewError, file_hash, validate_review
+from material_task import ReviewError, file_hash, validate_review, source_version_matches
 
 KINDS = {'ppt', 'poster', 'onepager'}
 
@@ -15,7 +15,7 @@ def _kind(material, explicit=None):
         if explicit not in KINDS:
             raise ReviewError('交付类型须为ppt、poster或onepager')
         return explicit
-    source = Path(material['source']['path'])
+    source = Path(material['source'].get('original_path', material['source']['path']))
     name = source.stem.casefold()
     if '海报' in name or 'poster' in name:
         return 'poster'
@@ -25,7 +25,7 @@ def _kind(material, explicit=None):
 
 
 def delivery_name(material, kind=None):
-    source = Path(material['source']['path'])
+    source = Path(material['source'].get('original_path', material['source']['path']))
     selected = _kind(material, kind)
     if source.suffix.lower() == '.pptx' and selected == 'ppt':
         return source.stem + '产品要素' + source.suffix
@@ -63,7 +63,7 @@ def _destinations(task, plans, output_dir):
 def _protected_paths(task, result):
     sources = [task['contract']['source']] + [m['source'] for m in task['materials']]
     paths = {Path(source[key]).resolve() for source in sources
-             for key in ('path', 'converted_path') if source.get(key)}
+             for key in ('path', 'converted_path', 'original_path') if source.get(key)}
     paths.update(Path(r['output']).resolve() for r in result.get('results', []) if r.get('output'))
     return paths
 
@@ -76,7 +76,7 @@ def _verify_internal(material, record, operations):
         raise ReviewError('模板尚未审阅修改，不交付未处理的源副本')
     source = Path(material['source']['path'])
     output = Path(record['output'])
-    if not source.is_file() or file_hash(source) != material['source']['sha256']:
+    if not source_version_matches(material['source']):
         raise ReviewError('物料来源已变化')
     if not output.is_file() or file_hash(output) != record.get('output_sha256'):
         raise ReviewError('内部输出已变化或不存在')
