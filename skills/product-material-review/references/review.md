@@ -6,7 +6,7 @@
 
 1. `task.target_product` 与 `contract.source`：核对目标、主合同版本和来源位置。
 2. `contract.facts`、原文块和 `contract.coverage`：读取候选的完整上下文、条件、例外、份额、单位及引用条款。`candidate` 不代表已核实；未检出不等于“无”或“0”。
-3. 任务模式、`materials[].template_source_product`、`destination_product`、`template_selection`、`regions` 与 `slots`：模板模式分别确认源模板主体和合同目标，读取选择依据、展示需求与可编辑范围；二者不同名不构成错误。`target` 是选中的模板区，`other` 保留为未选区，`ambiguous` 需重新核对选择。文件封面或宽泛简称不能授权全文件替换。
+3. 任务模式、物料来源及准备记录、`materials[].template_source_product`、`destination_product`、`template_selection`、`regions` 与 `slots`：Word 槽位基于清洁基线；原件有历史修订时，核对已接受全部旧修订的准备副本、原件/副本双哈希及原批注保留情况。模板模式分别确认源模板主体和合同目标；二者不同名不构成错误。`target` 是选中的模板区，`other` 保留为未选区，`ambiguous` 需重新核对选择。文件封面或宽泛简称不能授权全文件替换。
 4. `requirement_candidates`、`checks`：按 [需求发现与合同回查](requirements.md) 检查每个模板槽位，补充或拆分原子需求，先判适用性，再回查缺失依据。自动检查及种子不是完整需求或事实核验清单。
 
 `task.json` 保存完整信息。CSV 是便于查看的导出；为避免 Excel 公式执行而增加的文本保护前缀不能复制进回写文字。
@@ -57,7 +57,7 @@
 
 ### 局部决定
 
-`kind` 为 `replace_text`、`comment`，或模板模式清理缺项的 `placeholder`。`before` 必须在本次选定槽位内精确且唯一出现。替换的 `after` 必须是字符串且确有变化；批注的 `after` 是批注正文。`placeholder` 的 `before` 必须为整槽文字，`after` 必须精确为 `【待补充】`，并绑定 `pending_placeholder` 处置；它不能写任意新事实，也不能凭占位结案。定位使用任务绑定的 `part/xpath`，不在审阅文件中自造位置。
+`kind` 为 `replace_text`、`comment`，或模板模式清理缺项的 `placeholder`。`before` 必须在本次选定槽位内精确且唯一出现；Word 使用本次任务绑定的清洁基线文字，不从上传原件的历史插入/删除修订拼接。替换的 `after` 必须是字符串且确有变化；批注的 `after` 是批注正文。`placeholder` 的 `before` 必须为整槽文字，`after` 必须精确为 `【待补充】`，并绑定 `pending_placeholder` 处置；它不能写任意新事实，也不能凭占位结案。定位使用任务绑定的 `part/xpath`，不在审阅文件中自造位置。
 
 `evidence` 中每项使用 `{ "type": "fact|recheck|supplement|material", "id": "本任务实际ID" }` 的结构；`type` 要填其中一个值：
 
@@ -101,6 +101,8 @@ AI 核对每份模板的实际用途和主体页范围。默认分类或安全�
 
 ## 编辑限制
 
-Word 使用真实删除/插入修订和锚定批注，不自动接受已有修订。PPT 当前支持局部文字替换，不支持批注。跨段、复杂域、书签/批注边界、已有修订内部、超链接或含换行/制表符等结构可能受阻；查看 `verification.issues`，不要在程序失败后直接重建整篇/整页绕过局部范围。
+Word 默认先在工作副本接受原有全部修订，再按清洁基线生成本次真实删除/插入修订和锚定批注；上传原件可追溯，原批注保留并允许追加，本次新修订保留供用户审阅。含历史修订时须由 Windows Microsoft Word 原生 `AcceptAllRevisions` 完成；无 Word 或准备失败时受阻，不能直接沿用旧历史继续回写或交付。合同不执行此操作。
+
+PPT 当前支持局部文字替换，不支持批注。跨段、复杂域、书签/批注边界、超链接或含换行/制表符等结构仍可能受阻；查看 `verification.issues`，不要在程序失败后直接重建整篇/整页绕过局部范围。准备后意外出现的修订或文件变化需重新核对，不能在其内部继续套写本次修订。
 
 需要更复杂编辑时保留已授权的内容与区域边界，采用合适的 Office 编辑方法并重新验证；无法安全处理的部分明确交付为待处理项。

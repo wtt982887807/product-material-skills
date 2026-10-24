@@ -17,7 +17,7 @@ python -X utf8 $materialCli --help
 
 核心依赖为 `lxml` 和 `pypdf`，不调用在线模型，不要求模型 API 密钥。Skill 文件相对自身定位 `runtime/src` 和 `runtime/config`，不依赖原开发电脑的目录。CLI 可以从其他工作目录启动；命令中的输入/输出路径仍应指向本次实际文件。
 
-Word/PowerPoint 不参与核心 OOXML 分析和局部修改；原生打开与视觉验收需要目标环境具备相应工具。`doctor` 通过不等于已完成 Office 版面验收。
+不含历史修订的 Word 物料与 PPTX 可直接进行 OOXML 分析和局部修改。含历史修订的 Word 物料需先调用 Windows Microsoft Word 原生接受全部旧修订；目标环境无该能力时受阻。`doctor` 的 Word 检测仅为只读注册信号，实际能否启动和接受仍以准备结果为准。原生打开与视觉验收另需相应工具，`doctor` 通过不等于已完成物料准备或 Office 版面验收。
 
 ## 常用命令
 
@@ -61,11 +61,21 @@ python -X utf8 $materialCli accept `
 
 `analyze` 必需一份 `--contract` 和至少一份 `--material`；每份模板重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
 
+### Word 物料准备
+
+`analyze` 检出 Word 物料的历史修订时，自动准备到 `analysis/prepared_templates/<material_id>/原模板名.docx`，后续槽位、原文定位及回写均基于该工作副本。`source.path`、`source.sha256` 绑定基线，`source.original_path`、`source.original_sha256` 绑定上传原件，`preparation` 保存准备方法、原有/剩余修订数和接受前后批注记录；原件和基线都用于追溯及版本检查。无历史修订时保持原输入路径作为清洁基线。两种情况都不改上传原件，`apply` 生成新文件。`template` 与 `review` 模式均采用此规则，合同不接受或改写修订。
+
+- 检测到历史修订时，在 Windows Microsoft Word 中对工作副本执行原生 `AcceptAllRevisions`，保存后确认旧修订已清理，原批注仍保留。
+- 没有历史修订时直接沿用原件作为清洁基线，不要求安装 Office 来完成该步。
+- 有历史修订但无可用 Word、原生接受失败或准备校验不通过时明确受阻。不能把手工删除 XML 修订节点当作原生接受，也不能回退到带旧历史的物料继续交付。
+
+准备完成只建立基线，不表示旧物料事实已符合合同。AI 仍逐项核对模板要求；`apply` 从该基线生成本次真实修订与新增批注，保留已有批注。原件、准备副本或引擎改变后重新分析，不手工改哈希维持旧任务。
+
 `search-contract` 在任务绑定的合同原文块中检索，`--query` 可重复，`--limit` 限制返回数量；输出包含命中文本、位置、章节及前后文等来源信息。省略 `--out` 时读取命令输出。AI 仍需阅读上下文并作语义判断；无命中不证明合同没有该项。
 
 `inspect-review` 在回写前检查审阅数据、合同补提绑定、原子需求及槽位覆盖，定位需要继续核对的内容。返回 `semantic_review_complete`、`pending_checks`、`template_coverage`、`requirement_coverage`、`contract_rechecks`；前者只表示记录满足完整核对条件，不证明 AI 判断一定正确，也不代表业务文件已生成或通过原生/视觉验收。它不能替代回写后的 `validate`。完整需求记录见 [需求发现与合同回查](requirements.md)。
 
-这两个只读检查命令的 `--out` 应指定新的结果文件，不能覆盖任务、审阅记录或输入业务文件（包括已登记的合同转换副本）。提供 `--out` 后，完整内容写入文件，标准输出仅返回摘要和文件路径，避免长合同报告占满会话；AI 应继续读取报告中的所需部分。
+这两个只读检查命令的 `--out` 应指定新的结果文件，不能覆盖任务、审阅记录或输入业务文件（包括已登记的合同转换副本和 Word 准备副本）。提供 `--out` 后，完整内容写入文件，标准输出仅返回摘要和文件路径，避免长合同报告占满会话；AI 应继续读取报告中的所需部分。
 
 | 模式 | 输入含义 | 区域选择依据 |
 | --- | --- | --- |
@@ -126,6 +136,7 @@ python -X utf8 $materialCli analyze `
 | 产物 | 用途 |
 | --- | --- |
 | `analysis/task.json` | 完整事实候选、合同目标、源模板主体、选中区域、字段槽位、检查项和版本依据 |
+| `analysis/prepared_templates/<material_id>/原模板名.docx` | 仅含历史修订的 Word 物料生成此基线：全部旧修订已接受，原批注保留，绑定原件/准备副本双哈希 |
 | `analysis/review.template.json` | 本任务的审阅记录模板，由 AI 补充原子需求、合同回查及处置为 `review.json` |
 | `analysis/审阅说明.md` 与各 CSV | 可读底稿、逐物料需求和缺项检查 |
 | `updated_01/update_result.json` | 内部输出、`deliveries` 最终交付记录、哈希、状态、修改验证和未决检查 |
@@ -144,6 +155,6 @@ python -X utf8 $materialCli analyze `
 
 ## 迁移边界
 
-可迁移的是完整 Skill 和本次用户提供的输入资料。历史任务快照保存实际来源路径，单纯把旧 `task.json` 复制到另一台电脑不代表路径和版本已迁移。最稳妥的迁移流程是在新环境对同一批源文件重新分析，再由 AI 按新任务 ID、槽位和事实 ID 复核旧审阅决定。
+可迁移的是完整 Skill 和本次用户提供的输入资料。历史任务快照保存原件、转换或准备副本的实际路径，单纯复制旧 `task.json` 不代表路径和版本已迁移。应在新环境对同一批源文件重新分析；含历史修订的 Word 物料仍需可用的 Windows Microsoft Word 完成准备，再由 AI 按新任务 ID、槽位和事实 ID 复核旧审阅决定。
 
 当前 CLI 不自动迁移旧任务路径。输入搬移后重新分析，不手改快照或借用原电脑缓存。Skill 包不应包含用户合同、物料、历史任务、凭证、原电脑路径或私人数据。
