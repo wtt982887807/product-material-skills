@@ -1,4 +1,4 @@
 interface:
   display_name: "按合同制作产品物料"
   short_description: "按合同制作物料，Word 先接受旧修订再生成本次修订，PPT 只交付要素页"
-  default_prompt: "使用 $product-material-review，按合同内容和上传模板制作并验收：Word 先在副本接受全部旧修订，再生成本次修订并保留原批注；一页通和海报沿用模板文件名，PPT 只交付选定主体要素页，文件名在模板原名后加“产品要素”。"
+  default_prompt: "使用 $product-material-review，按合同内容和上传模板制作并验收：Word 先在副本接受全部旧修订，再生成本次修订并保留原批注；所有文件名按合同更新产品名称并保留可靠的模板渠道、日期和类型信息；PPT 只交付选定主体全部要素页（含续页），并追加一次“产品要素”。"

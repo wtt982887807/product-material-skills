@@ -99,6 +99,8 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
     elif not review_reason or not review_reason.strip():raise ReviewError('手工选页须说明核实依据')
     for page in pages:
         regions=[r for r in material['regions'] if any(loc.get('page')==page for loc in r.get('locations',[]))]
+        if any(r.get('continuation',{}).get('status')=='needs_review' for r in regions):
+            raise ReviewError(f'第{page}页续页关系待核实，不能通过手工页码绕过')
         if not any(r['status']=='target' for r in regions):raise ReviewError(f'第{page}页没有明确目标产品区域')
         if any(r['status']=='other' for r in regions):raise ReviewError(f'第{page}页含其他产品，不能作为仅目标产品的整页交付')
         if any(r.get('status')=='ambiguous' and r.get('product_names') for r in regions):
@@ -110,6 +112,9 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
     retained_ids=[]
     if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
         raise ReviewError('交付仅允许产品要素页，不能手工加入封面或市场页')
+    missing = (set(suggestion['pages']) | set(suggestion.get('review_pages', []))) - set(pages)
+    if missing:
+        raise ReviewError('产品要素页须完整交付，不能遗漏已识别或待核的续页：' + ', '.join(map(str, sorted(missing))))
     if task.get('material_mode')=='template':
         from material_task import validate_review
         checked=validate_review(task,result['applied_review'])
@@ -143,8 +148,13 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
     record=next(r for r in result['results'] if r['material_id']==material_id)
     output=Path(output).resolve()
     if output.suffix.lower()!='.pptx':raise ReviewError('交付文件扩展名必须为.pptx')
+    from material_delivery import delivery_naming, delivery_target, _plans
+    kind=_plans(task,result).get(material_id,{}).get('kind')
+    naming=delivery_naming(material,kind,target_product=delivery_target(task))
+    if output.name!=naming['name']:
+        raise ReviewError('交付文件名须按合同产品更新，应为：'+naming['name'])
     manifest=output.with_suffix('.delivery.json')
-    if output.exists() or manifest.exists():raise ReviewError('交付输出已存在，请使用新文件名')
+    if output.exists() or manifest.exists():raise ReviewError('交付输出已存在，请使用新输出目录并保持规范文件名')
     source=Path(record['output'])
     exported=export_selected_slides(source,output,pages,record['output_sha256'])
     if not exported['valid']:raise ReviewError(str(exported['errors']))
@@ -161,12 +171,14 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
                     included_decisions=included,excluded_decisions=excluded,visual_status='not_checked',
                     material_mode=task.get('material_mode','review'),content_status=content_status,
                     pending_slot_ids=pending_slots,template_source_product=material.get('template_source_product'),
+                    naming_metadata=naming,
                     template_retained_requirement_ids=selection.get('template_retained_requirement_ids',[]),
                     note='只交付所选产品要素页；完整稿中的其他页及其修改不在本交付中，待核信息不因此自动结案。')
     write_json(manifest,exported)
     return {'output':str(output),'manifest':str(manifest),'pages':pages,'valid':True,
             'included_decisions':included,'excluded_decisions':excluded,'visual_status':'not_checked',
             'content_status':content_status,'pending_slot_ids':pending_slots,
+            'naming_metadata':naming,
             'template_retained_requirement_ids':selection.get('template_retained_requirement_ids',[])}
 
 
