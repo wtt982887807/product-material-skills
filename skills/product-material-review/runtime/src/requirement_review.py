@@ -7,8 +7,8 @@ from collections import defaultdict
 from hashlib import sha256
 import re
 
-STATUSES={'verified','not_applicable','needs_external','unresolved','unreadable','conflict'}
-COMPLETE={'verified','not_applicable'}
+STATUSES={'verified','not_applicable','template_retained','needs_external','unresolved','unreadable','conflict'}
+COMPLETE={'verified','not_applicable','template_retained'}
 
 
 def enabled(task):
@@ -78,6 +78,9 @@ def validate_requirements(task,review,rechecks):
     sources={('fact',f['fact_id']):f for f in task['contract']['facts']}
     sources.update({('recheck',rid):fact for rid,fact in rechecks.items()})
     sources.update({('supplement',s['supplement_id']):s for s in review.get('supplements',[])})
+    from template_retention import validate_template_retentions
+    retentions=validate_template_retentions(task,review,rechecks)
+    sources.update({('template',rid):source for rid,source in retentions.items()})
     candidates={c['candidate_id']:c for c in task.get('requirement_candidates',[])}
     records={};by_slot=defaultdict(list);covered=set();searches={};needs_search=[];effective_status={};search_cache={}
     for record in review.get('requirements',[]):
@@ -106,6 +109,8 @@ def validate_requirements(task,review,rechecks):
         for reference in evidence:
             source=sources.get((reference.get('type'),reference.get('id')))
             if source is None:raise ValueError('原子需求依据不存在，模板不能证明目标产品事实')
+            if reference.get('type')=='template' and (status!='template_retained' or reference.get('id')!=rid):
+                raise ValueError('模板例外只能授权保留本需求旧值，不能冒充已核实事实或其他需求依据')
             if status!='not_applicable' and source['field_id']!=record['field_id']:
                 raise ValueError('原子需求证据字段与所需字段不一致')
         if status in COMPLETE and record.get('reviewed') is True:
@@ -150,16 +155,19 @@ def validate_requirements(task,review,rechecks):
     coverage={'total':len(records),**counts,'unreviewed_candidate_ids':missing,
         'unreviewed_requirement_ids':unreviewed,'pending_requirement_ids':pending,
         'completed_requirement_ids':complete,'by_material':{},'needs_contract_search_ids':needs_search,
-        'contract_searches':searches,'effective_statuses':effective_status}
+        'contract_searches':searches,'effective_statuses':effective_status,
+        'template_retained_ids':sorted(retentions)}
     for m in task['materials']:
         mid=m['material_id']
         coverage['by_material'][mid]={'pending_requirement_ids':[rid for rid in pending if records[rid]['material_id']==mid],
-            'unreviewed_candidate_ids':[cid for cid in missing if candidates[cid]['material_id']==mid]}
+            'unreviewed_candidate_ids':[cid for cid in missing if candidates[cid]['material_id']==mid],
+            'template_retained_ids':[rid for rid in retentions if records[rid]['material_id']==mid]}
     return {'records':records,'by_slot':dict(by_slot),'coverage':coverage,'sources':sources,
-            'candidates':candidates,'covered_candidates':covered,'slots':slots,'decisions':review.get('decisions',[])}
+            'candidates':candidates,'covered_candidates':covered,'slots':slots,'decisions':review.get('decisions',[]),
+            'template_retentions':retentions}
 
 
-def validate_operation_requirements(state,record,mid,sid):
+def validate_operation_requirements(state,record,mid,sid,allow_template=False):
     ids=record.get('requirement_ids')
     if not isinstance(ids,list) or not ids or len(ids)!=len(set(ids)):
         raise ValueError('正文修改须关联本槽原子需求requirement_ids')
@@ -170,6 +178,8 @@ def validate_operation_requirements(state,record,mid,sid):
             raise ValueError('正文修改引用了其他槽位或不存在的原子需求')
         if requirement['status'] not in COMPLETE or requirement.get('reviewed') is not True:
             raise ValueError('待核原子需求不能授权写入目标产品事实')
+        if requirement['status']=='template_retained' and not allow_template:
+            raise ValueError('模板保留需求只能授权原样保留，不能授权正文替换')
         allowed |= _refs(requirement['evidence'])
     references=_refs(record.get('evidence',[]))
     if not references or not references.issubset(allowed):
@@ -197,6 +207,8 @@ def bind_slot_requirements(state,coverage,dispositions):
                 if req['status'] not in COMPLETE or req.get('reviewed') is not True:
                     pending=True;continue
                 if record['action']=='pending_placeholder':pending=True;continue
+                if req['status']=='template_retained' and req['retained_text'] not in record['final_text']:
+                    raise ValueError('模板保留片段必须原样存在于最终正文且保留关联批注')
                 if req['status']=='not_applicable' and req['rendered_text']:
                     if not re.search(r'不适用|不涉及|不设(?:置)?|未设置|不开放|无开放期|封闭(?:式|运作)|不收取|免收',req['rendered_text']):
                         raise ValueError('不适用需求的非空展示文字须明确表达不适用、无该安排或相应否定状态')
