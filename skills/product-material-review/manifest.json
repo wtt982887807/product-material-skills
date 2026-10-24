@@ -8,7 +8,7 @@
     {
       "bytes": 4646,
       "path": "INSTALL.md",
-      "sha256": "83d5af3d5a0e3810bf5fd77f451f9dcd97150b97132a2a7870b45787564d8abe"
+      "sha256": "ee1aeb8c35f6630f42834d80288d9e78d5844999cc3309a866da0be999602fd6"
     },
     {
       "bytes": 8190,
@@ -18,7 +18,7 @@
     {
       "bytes": 6,
       "path": "VERSION",
-      "sha256": "d82f34ae9aa41bc4a0cb529a1ac0898fed09d6b479fb1cc44cb66c34f15ee84d"
+      "sha256": "563a0b4eec3c77bbc34ac630d4fa5214f5c6726ae01468404fd704473110084e"
     },
     {
       "bytes": 490,
@@ -26,9 +26,9 @@
       "sha256": "07afe010a77615e474f0e240848e13a60e07521a1e8a70cf72217cc4da9169aa"
     },
     {
-      "bytes": 15822,
+      "bytes": 16536,
       "path": "references/cli.md",
-      "sha256": "9c31d3b1a8b0947898088ecc34d7d0ed3ef869f740fba6d4a2ad25994622bc41"
+      "sha256": "a4fe939f2e36de0f07bbf5017f586c019325e21099f4658e54b9bcc857e3c776"
     },
     {
       "bytes": 8394,
@@ -76,9 +76,9 @@
       "sha256": "96878753af88aaf89e78123aedc76dcdbef97b08b894eec342ff5e49c5930856"
     },
     {
-      "bytes": 21404,
+      "bytes": 23275,
       "path": "runtime/src/contract_facts.py",
-      "sha256": "15c04082ed1b8a002669d4c026c171c8ecae960b3513a700ab3a755f18209d41"
+      "sha256": "cebc5e0493d36897f4c0ed0641a1cda42c3bd6d9e56c5fd7c9af2ab328dd764d"
     },
     {
       "bytes": 17081,
@@ -108,7 +108,7 @@
     {
       "bytes": 42018,
       "path": "runtime/src/material_task.py",
-      "sha256": "a9415e54b0311cb7f1cbcd770489a5666b9b68b61d343fa80ec37dc125cde670"
+      "sha256": "92c5fc9aefd316f99f36d0ac94e35e94ba900fbcc07fc5397abc0037cb8e74c3"
     },
     {
       "bytes": 43412,
@@ -184,5 +184,5 @@
     "word_preparation"
   ],
   "source_policy": "verified_runtime_and_public_metadata_only",
-  "version": "1.2.3"
+  "version": "1.2.4"
 }
