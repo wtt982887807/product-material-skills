@@ -61,6 +61,24 @@ python -X utf8 $materialCli accept `
 
 `analyze` 必需一份 `--contract` 和至少一份 `--material`；每份模板重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
 
+### 高效读取与批量回查
+
+优先读取小视图，完整底稿继续保存在 `task.json`。同一输入和引擎不变时复用已有任务；字段补提只更新审阅记录，不重新生成 Word 基线。按 `next_offset` 读取下一页，不能把分页末尾当作已审阅全合同。
+
+```powershell
+python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section overview
+python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section contract --offset 0 --limit 100
+python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section slots --material-id '实际物料ID' --offset 0 --limit 40
+python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section facts --field management_fee --field custody_fee
+python -X utf8 $materialCli search-contract --task 'analysis/task.json' --batch 'queries.json' --compact --out 'search.json'
+python -X utf8 $materialCli inspect-review --task 'analysis/task.json' --review 'review.json' --compact
+python -X utf8 $materialCli search-contract --task 'analysis/task.json' --retention-field distributor_risk_rating --compact --out 'rating-search.json'
+```
+
+批查文件形如 `[{"id":"fees","queries":["管理费","托管费"],"limit":20},{"id":"opening","queries":["开放期"],"limit":20}]`。每组单独限制返回数量；`truncated` 为真时继续读取，避免热门词挤掉其他字段。`--retention-field` 自动执行指定例外的完整强制同义词回查，返回 `required_review_block_ids`，供 AI 阅读后建立保留记录；它不证明合同未提。
+
+`contract` 分页提供唯一原文块，`slots` 保留完整槽文、新字段及不可编辑提示，`facts` 通过去重原文块保留依据。`--compact` 只减少重复元数据：实际命中与相邻原文保持完整，风险计数保留；需要详细风险位置时查完整报告。`inspect-review --compact` 不跳过任何校验。`--out` 落盘对应视图并仅向控制台返回路径和摘要，不要随后再次无条件读取整个大报告。
+
 ### Word 物料准备
 
 `analyze` 检出 Word 物料的历史修订时，自动准备到 `analysis/prepared_templates/<material_id>/原模板名.docx`，后续槽位、原文定位及回写均基于该工作副本。`source.path`、`source.sha256` 绑定基线，`source.original_path`、`source.original_sha256` 绑定上传原件，`preparation` 保存准备方法、原有/剩余修订数和接受前后批注记录；原件和基线都用于追溯及版本检查。无历史修订时保持原输入路径作为清洁基线。两种情况都不改上传原件，`apply` 生成新文件。`template` 与 `review` 模式均采用此规则，合同不接受或改写修订。
