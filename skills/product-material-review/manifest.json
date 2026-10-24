@@ -6,34 +6,34 @@
   ],
   "files": [
     {
-      "bytes": 4011,
+      "bytes": 4646,
       "path": "INSTALL.md",
-      "sha256": "fb95f6c4c6bfbe148d3dbfbfdce3719a1f5ced50eb482a6969b87ce643d49bc9"
+      "sha256": "2fec8f8479de9deed6e9458b20c1ea9bacf83f6a4397b04cf872201bbf01a60e"
     },
     {
-      "bytes": 5739,
+      "bytes": 6422,
       "path": "SKILL.md",
-      "sha256": "e432da8be3b71101fb6a3c0c502d2f55010c70233e02d452957cd34dbb4496cf"
+      "sha256": "76bbb91c20516e16de6ad896853c08d706947c04d5f87b567f34b894bc4a3231"
     },
     {
       "bytes": 6,
       "path": "VERSION",
-      "sha256": "6cf4e084b47f33c9b02ef79279d157833868f8f70514169a768be353ee328fea"
+      "sha256": "c62a5cc61ac4525935753f5ec284c0a052a4b1da4b3a3580dce2b7d77a2154ae"
     },
     {
-      "bytes": 443,
+      "bytes": 490,
       "path": "agents/openai.yaml",
-      "sha256": "51b68aa742b0b560b08494c430be9f4c3e730726e321c9274f4420b2eb803ba7"
+      "sha256": "07afe010a77615e474f0e240848e13a60e07521a1e8a70cf72217cc4da9169aa"
     },
     {
-      "bytes": 11777,
+      "bytes": 13763,
       "path": "references/cli.md",
-      "sha256": "29863abe6b11bde30d7c5ca6fba519a66d84f527ac05be2faae7db3a66a66171"
+      "sha256": "65c5179fd6979fe728c570b58e5dbff4c9bea972262793189c2f0bdde8d175c2"
     },
     {
-      "bytes": 7484,
+      "bytes": 8047,
       "path": "references/qa-and-delivery.md",
-      "sha256": "a90985542ed0190a324dd818881508c5225ccd18c7cb65be57f55c72db1d26cb"
+      "sha256": "60ac04ca65965f2bfa01082927bcd1dd3e2cdaad60d4ae2b03f55833cd38d97a"
     },
     {
       "bytes": 8535,
@@ -41,9 +41,9 @@
       "sha256": "bbe75d1378fb8fcf7f7e87a7f0cf489cfb87a63002ad4a38f9e84e96ba2ff452"
     },
     {
-      "bytes": 11844,
+      "bytes": 12516,
       "path": "references/review.md",
-      "sha256": "274973bbaee8617f7bf975ba7df3c40fac3b7382161fd7a8cfef749deb7a5e5a"
+      "sha256": "11f5992a0a213ec4485de7ff3fe51a994117a75fc89c5fd80a890ed0b2040803"
     },
     {
       "bytes": 25,
@@ -86,14 +86,14 @@
       "sha256": "0a613b506888558d8c99d411f45329f69b83382eacf2b2e3e427f674d32dc876"
     },
     {
-      "bytes": 14853,
+      "bytes": 15746,
       "path": "runtime/src/material_cli.py",
-      "sha256": "c9e3a4f8bddd62deaa9f016565ef511ee5d0968de66c1f2bdbbc47df0c6cbfcf"
+      "sha256": "b0f03d73db00cb1f8c7612990cc01e26972c4d5aaf21724f56910cc220cb9789"
     },
     {
-      "bytes": 12407,
+      "bytes": 12503,
       "path": "runtime/src/material_delivery.py",
-      "sha256": "376712399794273734b4558aa845367e735a87784f7ace5a223e632af36a90bc"
+      "sha256": "37d32fccbe7413a1bc22afae4e0c909c64e8de52e1f67da8a73bbf739a764223"
     },
     {
       "bytes": 49560,
@@ -101,9 +101,9 @@
       "sha256": "e4a490e6c97caa77f14d0c736497c5818b68f7ff342167de83f97c7ded78e94b"
     },
     {
-      "bytes": 37558,
+      "bytes": 40271,
       "path": "runtime/src/material_task.py",
-      "sha256": "36ec7855f545db2556139b05bac60f5c9be4cd33fba64ee711297a3d7546127b"
+      "sha256": "928f54fc321619c2b1eeae185e3b90d347bf8f69f59d69016560297aa898d713"
     },
     {
       "bytes": 37040,
@@ -136,6 +136,11 @@
       "sha256": "2b4a1f73cdfd51f9a575ff2416ee3c48847fc017c893d5556d66f6d6474a47df"
     },
     {
+      "bytes": 11556,
+      "path": "runtime/src/word_preparation.py",
+      "sha256": "4cc7895bae33284f5d5c0248165aed2fb8b82e007275ae94e3f057548fbc001d"
+    },
+    {
       "bytes": 777,
       "path": "scripts/material_agent.py",
       "sha256": "fc3888db3c81079bf4b32f092da4d8998d1c873015afbb543c43d064c083e6cd"
@@ -158,8 +163,9 @@
     "qdii_pipeline",
     "requirement_review",
     "task_report",
-    "task_validation"
+    "task_validation",
+    "word_preparation"
   ],
   "source_policy": "verified_runtime_and_public_metadata_only",
-  "version": "1.2.1"
+  "version": "1.2.2"
 }
