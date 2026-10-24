@@ -7,8 +7,55 @@ from collections import defaultdict
 from hashlib import sha256
 import re
 
-STATUSES={'verified','not_applicable','template_retained','needs_external','unresolved','unreadable','conflict'}
+STATUSES={'verified','not_applicable','template_retained','template_pending','needs_external','unresolved','unreadable','conflict'}
 COMPLETE={'verified','not_applicable','template_retained'}
+RATING_OWNERS={'manager_risk_rating':'manager','distributor_risk_rating':'distributor',
+               'displayed_risk_rating':'unspecified'}
+RATING_SUBJECT=re.compile(r'管理人|销售机构|代销机构|销售渠道|代销渠道')
+
+
+def _rating_ranges(text):
+    """Bind an explicit assessor anywhere in its rating clause, including notes.
+
+    Parenthetical punctuation cannot separate a value from its assessor. A
+    clause with explicit but unclear ownership remains blocked, not generic.
+    """
+    clauses=[];begin=0;depth=0
+    for index,char in enumerate(text):
+        if char in '(（':depth+=1
+        elif char in ')）':depth=max(depth-1,0)
+        elif depth==0 and char in '；;。\n，,':
+            clauses.append((begin,index));begin=index+1
+    clauses.append((begin,len(text)))
+    ranges=[]
+    for begin,end in clauses:
+        body=text[begin:end]
+        owners=list(RATING_SUBJECT.finditer(body))
+        if not owners:continue
+        roles={'manager' if owner.group()=='管理人' else 'distributor' for owner in owners}
+        labelled=bool(re.search(r'风险(?:等级|评级|级别)|(?:销售)?评级',body))
+        role=next(iter(roles)) if len(roles)==1 and labelled else 'ambiguous'
+        ranges.append((begin,end,role))
+    return ranges
+
+
+def _validate_rating_scope(state,record,mid,sid,requirements):
+    if record.get('kind')!='replace_text':return
+    fields={r['field_id'] for r in requirements if r['field_id'] in RATING_OWNERS}
+    if not fields:return
+    text=state['slots'][(mid,sid)]['text']
+    ranges=_rating_ranges(text)
+    if not ranges:return
+    from text_spans import locate_span
+    start,end=locate_span(text,record.get('before'),record.get('start'))
+    touched=[r for r in ranges if start<r[1] and r[0]<end]
+    if not touched:return  # A separate unlabelled rating retains its reviewed field meaning.
+    if (len(touched)!=1 or touched[0][2]=='ambiguous'
+            or {RATING_OWNERS[field] for field in fields}!={touched[0][2]}):
+        raise ValueError('风险评级修改须绑定对应管理人或销售机构主体范围；多主体须分别定位')
+    if any(('manager' if match.group()=='管理人' else 'distributor')!=touched[0][2]
+           for match in RATING_SUBJECT.finditer(record.get('after',''))):
+        raise ValueError('风险评级替换不能更换原文评级主体')
 
 
 def enabled(task):
@@ -72,6 +119,8 @@ def _refs(evidence):
 def validate_requirements(task,review,rechecks):
     """Validate record provenance; semantic correctness remains reviewed judgment."""
     from material_task import dictionary, template_required_slots
+    from contract_recheck import _parameter_key
+    for item in [*review.get('requirements',[]),*review.get('supplements',[])]:_parameter_key(item)
     fields={f['field_id'] for f in task.get('field_dictionary',dictionary())}
     fields.update(f['field_id'] for f in review.get('new_fields',[]))
     slots={(m['material_id'],s['slot_id']):s for m in task['materials'] for s in template_required_slots(m)}
@@ -109,10 +158,13 @@ def validate_requirements(task,review,rechecks):
         for reference in evidence:
             source=sources.get((reference.get('type'),reference.get('id')))
             if source is None:raise ValueError('原子需求依据不存在，模板不能证明目标产品事实')
-            if reference.get('type')=='template' and (status!='template_retained' or reference.get('id')!=rid):
+            if reference.get('type')=='template' and (status not in {'template_retained','template_pending'} or reference.get('id')!=rid):
                 raise ValueError('模板例外只能授权保留本需求旧值，不能冒充已核实事实或其他需求依据')
             if status!='not_applicable' and source['field_id']!=record['field_id']:
                 raise ValueError('原子需求证据字段与所需字段不一致')
+            if (_parameter_key(source) is not None and _parameter_key(record) is not None
+                    and source['parameter_key']!=record['parameter_key']):
+                raise ValueError('原子需求parameter_key与所引来源参数范围不一致')
         if status in COMPLETE and record.get('reviewed') is True:
             if not evidence:raise ValueError('核实或不适用需求必须有来源依据')
             if status=='verified' and not rendered.strip():raise ValueError('已核实需求须指定最终渲染文字')
@@ -156,12 +208,14 @@ def validate_requirements(task,review,rechecks):
         'unreviewed_requirement_ids':unreviewed,'pending_requirement_ids':pending,
         'completed_requirement_ids':complete,'by_material':{},'needs_contract_search_ids':needs_search,
         'contract_searches':searches,'effective_statuses':effective_status,
-        'template_retained_ids':sorted(retentions)}
+        'template_retained_ids':sorted(rid for rid,s in retentions.items() if s['status']=='template_retained'),
+        'template_pending_ids':sorted(rid for rid,s in retentions.items() if s['status']=='template_pending')}
     for m in task['materials']:
         mid=m['material_id']
         coverage['by_material'][mid]={'pending_requirement_ids':[rid for rid in pending if records[rid]['material_id']==mid],
             'unreviewed_candidate_ids':[cid for cid in missing if candidates[cid]['material_id']==mid],
-            'template_retained_ids':[rid for rid in retentions if records[rid]['material_id']==mid]}
+            'template_retained_ids':[rid for rid in retentions if records[rid]['material_id']==mid and records[rid]['status']=='template_retained'],
+            'template_pending_ids':[rid for rid in retentions if records[rid]['material_id']==mid and records[rid]['status']=='template_pending']}
     return {'records':records,'by_slot':dict(by_slot),'coverage':coverage,'sources':sources,
             'candidates':candidates,'covered_candidates':covered,'slots':slots,'decisions':review.get('decisions',[]),
             'template_retentions':retentions}
@@ -176,14 +230,17 @@ def validate_operation_requirements(state,record,mid,sid,allow_template=False):
         requirement=state['records'].get(rid)
         if not requirement or (requirement['material_id'],requirement['slot_id'])!=(mid,sid):
             raise ValueError('正文修改引用了其他槽位或不存在的原子需求')
-        if requirement['status'] not in COMPLETE or requirement.get('reviewed') is not True:
+        is_template = requirement['status'] in {'template_retained','template_pending'}
+        if (requirement['status'] not in COMPLETE and not (is_template and allow_template)
+                or requirement.get('reviewed') is not True):
             raise ValueError('待核原子需求不能授权写入目标产品事实')
-        if requirement['status']=='template_retained' and not allow_template:
+        if is_template and (not allow_template or record.get('kind') in {'replace_text','placeholder'}):
             raise ValueError('模板保留需求只能授权原样保留，不能授权正文替换')
         allowed |= _refs(requirement['evidence'])
     references=_refs(record.get('evidence',[]))
     if not references or not references.issubset(allowed):
         raise ValueError('正文修改依据必须来自所关联且已核实的原子需求')
+    _validate_rating_scope(state,record,mid,sid,[state['records'][rid] for rid in ids])
 
 
 def bind_slot_requirements(state,coverage,dispositions):
@@ -204,6 +261,25 @@ def bind_slot_requirements(state,coverage,dispositions):
             pending=False
             for rid in actual:
                 req=state['records'][rid]
+                if req['status']=='template_pending':
+                    from text_spans import locate_span
+                    source=state['template_retentions'][rid]
+                    start=source['pending_span']['start']
+                    original=state['slots'][key]['text']
+                    delta=0
+                    for decision in state['decisions']:
+                        if (decision.get('material_id'),decision.get('slot_id'))!=key or decision.get('kind')!='replace_text':continue
+                        first,last=locate_span(original,decision.get('before'),decision.get('start'))
+                        if last<=start:delta+=len(decision['after'])-(last-first)
+                    final_start=start+delta
+                    if record['final_text'][final_start:final_start+len(req['retained_text'])]!=req['retained_text']:
+                        raise ValueError('模板待确认保留片段必须原样存在于最终正文')
+                    linked={source['comment_decision_id'],*source['highlight_decision_ids']}
+                    same_slot={d.get('decision_id') for d in state['decisions']
+                               if (d.get('material_id'),d.get('slot_id'))==key}
+                    if not linked.issubset(same_slot):
+                        raise ValueError('模板待确认必须保留关联批注和全部实际标黄highlight决定')
+                    pending=True
                 if req['status'] not in COMPLETE or req.get('reviewed') is not True:
                     pending=True;continue
                 if record['action']=='pending_placeholder':pending=True;continue

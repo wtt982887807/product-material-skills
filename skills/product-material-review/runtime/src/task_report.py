@@ -29,8 +29,8 @@ def write_review_reports(task,review,checked,out):
         [(fid,f['field_id'],f['value'],f['raw_text'],f['source_locations'],f['source_kind'],f['source_sha256'],f['reason'])
          for fid,f in checked.get('contract_rechecks',{}).items()])
     coverage=checked.get('requirement_coverage',{})
-    csv_table(out/'沿用模板例外.csv',['需求ID','物料ID','槽位ID','字段','沿用原文','批注决定','合同已核实','核对说明'],
-        [(rid,r['material_id'],r['slot_id'],r['field_id'],r['value'],r['comment_decision_id'],False,
+    csv_table(out/'模板保留与待核.csv',['需求ID','物料ID','槽位ID','字段','状态','沿用原文','标黄片段','批注决定','合同已核实','核对说明'],
+        [(rid,r['material_id'],r['slot_id'],r['field_id'],r.get('status','template_retained'),r['value'],r.get('highlight_spans',[]),r['comment_decision_id'],False,
           r.get('contract_search',{}).get('conclusion')) for rid,r in checked.get('template_retentions',{}).items()])
     stats={'original_contract_candidates':len(task['contract']['facts']),
            'new_contract_recheck_facts':len(checked.get('contract_rechecks',{})),
@@ -69,10 +69,10 @@ def write_reports(task,out):
            '## 阅读顺序','',
            '1. 合同完整要素底稿：查看完整原文、条件及出处。候选不等于已核验规范化值。',
            '2. 合同覆盖检查：查看章节、表格、附件和引用的处理状态；原文覆盖不等于语义提取全部完成。',
-           ('3. 模板范围与目标产品：合同确定成品产品；其余文件只提供格式。先选定模板自身要素区域，模板原产品不同不构成错误。'
+           ('3. 模板范围与目标产品：合同确定成品产品；其余文件提供原话术、参数结构和格式。模板原产品不同不构成身份冲突或确认理由。'
             if template_mode else '3. 物料产品区域：先核对要更新哪个产品；非目标及身份待核区域禁止回写。'),
            '4. 逐物料需求：保留各文件原标签、内容、顺序与精确位置。',
-           '5. 个例检查与缺项：缺少日期、参数、主体或其他依据均按具体检查项补充。','',
+           '5. 个例检查与缺项：有依据的差异局部修改；合同未给出的参数保留模板原值、只标黄待核片段并加真实批注，列入待核清单。','',
            '## 审阅与更新','',
            '`task.json`保存无损结构化任务；复制`review.template.json`为本次审阅文件，填写supplements、decisions及必要的resolutions。'+
            ('模板模式还须逐一填写交付范围内slot_dispositions，未处置槽位不能完成。' if template_mode else ''),
@@ -85,14 +85,17 @@ def write_reports(task,out):
     if template_mode:
         lines += ['','## 模板内容覆盖','',
                   '模板旧名称、产品码、费率、日期、管理人和历史业绩均不构成新产品事实。识别出的同名字段也必须逐槽审阅。',
-                  'slot_dispositions使用rewrite、retain_verified、retain_template_exception、pending_placeholder、not_applicable或retain_static；final_text须为所有决定执行后的完整槽位正文。',
-                  '指定例外：业绩报酬及代销机构销售评级回查合同未给出具体值时，原样保留并实际批注“合同未提，沿用模板”，标记template_retained，不能称合同已核实。其他缺项用kind=placeholder清除旧值，保留待补状态。',
+                  '默认保留模板原句，只对有证据的差异创建replace_text。数字/代码之外必要的短语调整须写wording_change_reason；不能直接搬入合同整段话术。',
+                  'slot_dispositions使用rewrite（含已知值更新与缺项混合）、retain_verified、retain_marked、not_applicable或retain_static；final_text须为所有决定执行后的完整正文。decision_ids只列改文决定。',
+                  '合同回查后未给出具体参数：requirements标记template_pending，原值保持不变，为最小待核片段创建highlight（color=yellow）及comment，记录highlight_decision_ids和comment_decision_id。重复文字用start定位；start均按原始槽位计数。禁止整格清空写待补充。',
+                  '缺项可以生成pending_draft并交付审阅，无须先等用户补齐；待核内容不得计入合同已核实或全部更新完成。评级必须核对评级主体与口径，不能用管理人评级替代代销机构评级。',
                   '空白值槽和无法安全写入的对象仍须人工处理；源副本和未覆盖正文仅为内部审阅稿，不能标记完整成品。']
         if task.get('requirement_schema_version'):
             lines += ['','## 需求回查与核对','',
                 f"合同初始候选 {len(task['contract']['facts'])} 条；规则发现需求种子 {len(task.get('requirement_candidates',[]))} 条。此时已核实需求为0，不能将原文覆盖或种子数量当作语义完成率。",
                 'AI须逐槽读取完整模板并补充、拆分原子需求；已有字段字典不是需求白名单。种子仅提醒可能的费用、支付、日期和公告信息，不自动证明已发现所有含义。',
+                '同字段中已知比例与缺失门槛等参数分别使用parameter_key；需求、合同补提和用户补充保持相同语义键。省略键表示整个字段，不能用换键绕过已有依据。',
                 '先判断目标合同是否适用，再匹配已有底稿、回查完整合同及关联条款。新的合同摘录记录到contract_rechecks，并绑定原文块与精确引文；不得伪装成user_supplied。',
-                'requirements逐项记录verified、not_applicable、template_retained、needs_external、unresolved、unreadable或conflict；slot_dispositions须列全requirement_ids并确认discovery_reviewed/discovery_reason。',
+                'requirements逐项记录verified、not_applicable、template_pending、needs_external、unresolved、unreadable或conflict；slot_dispositions须列全requirement_ids并确认discovery_reviewed/discovery_reason。旧template_retained仅兼容旧任务。',
                 '最终原子需求rendered_text必须出现在实际槽位正文。封闭合同可用合同依据将模板开放日期判不适用，无需虚构日期或强制用户补充。']
     (out/'审阅说明.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')

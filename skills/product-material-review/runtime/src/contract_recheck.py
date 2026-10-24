@@ -26,6 +26,16 @@ def _text(value, label):
     return value
 
 
+def _parameter_key(record):
+    """An omitted key denotes the whole field; explicit empty scopes are invalid."""
+    if 'parameter_key' not in record:
+        return None
+    key = record['parameter_key']
+    if not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', key):
+        raise ValueError('parameter_key须为非空稳定snake_case参数标识')
+    return key
+
+
 def _digest(value, label):
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", value):
         raise ValueError(f"{label}缺少有效SHA256")
@@ -204,6 +214,7 @@ def validate_rechecks(task, review):
         if identity in validated:
             raise ValueError("recheck_id重复")
         field_id = _text(record.get("field_id"), "回查字段field_id")
+        parameter_key = _parameter_key(record)
         if field_id not in fields:
             raise ValueError("回查字段未定义：请先在new_fields登记名称和定义，字典不是需求白名单。")
         if record.get("reviewed") is not True:
@@ -243,6 +254,8 @@ def validate_rechecks(task, review):
             "source_block_ids": source_ids, "source_path": source["path"], "source_sha256": source_hash,
             "reason": reason, "reviewed": True, "semantic_verification_performed": False,
             "validation_scope": "current_source_exact_quotes_and_explicit_review_only"}
+        if parameter_key is not None:
+            validated[identity]['parameter_key'] = parameter_key
     state, message = _source_state(source)
     if state != "verified":
         raise ValueError(message)

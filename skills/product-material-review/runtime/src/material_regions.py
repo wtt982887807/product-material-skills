@@ -142,6 +142,11 @@ def _numbers(text):
     return [(unicodedata.normalize("NFKC", n).casefold(), unit) for n, unit in NUMBER.findall(text)]
 
 
+def _name_without_product_code(text):
+    """Remove only an explicitly labelled trailing code, never issue numbers."""
+    return re.sub(r"\s*产品代码\s*[：:]\s*[A-Za-z0-9][A-Za-z0-9._\- \t]*\s*$", "", text).strip()
+
+
 def _explicit_names(text):
     """Return None when absent, [] for a blank identity label, else literal names.
 
@@ -150,7 +155,8 @@ def _explicit_names(text):
     """
     pattern = r"^[ \t]*(?:" + "|".join(re.escape(s) for s in sorted(NAME_LABELS, key=len, reverse=True)) + r")[ \t]*[：:][ \t]*(.*)$"
     matches = re.findall(pattern, text, flags=re.M)
-    return list(dict.fromkeys(value.strip() for value in matches if value.strip())) if matches else None
+    names = [_name_without_product_code(value) for value in matches]
+    return list(dict.fromkeys(value for value in names if value)) if matches else None
 
 
 def _names(text, allow_short=False):
@@ -165,6 +171,7 @@ def _names(text, allow_short=False):
     pieces = re.split(r"(?<=[划金托])\s*[、；;\n]\s*(?=.{2,80}(?:信托|计划|基金))", text)
     names = []
     for piece in pieces:
+        piece = _name_without_product_code(piece)
         piece = re.sub(r"^(?:产品名称|产品全称|信托名称|信托计划名称|计划名称)\s*[：:]\s*", "", piece).strip()
         piece = re.sub(r"^(?:拟投资标的(?:产品)?|投资标的(?:产品)?|底层产品|标的产品)\s*[：:—\-]+\s*", "", piece)
         piece = re.sub(r"(?:产品要素(?:介绍)?|要素表|基本要素|[（(]续[）)])$", "", piece).strip(" ：:-—")
@@ -622,11 +629,35 @@ def _analyze_pptx(package, analyzer):
         analyzer.issues = [i for i in analyzer.issues if i.get("region_id") not in amended]
 
 
+def _corroborated_performance_name(text, independent_names):
+    """Resolve a literal 产品表现 heading only against independently read names."""
+    match = re.fullmatch(r"(.+?)\s*产品表现", text.strip())
+    if not match:
+        return None
+    subject = _normalize(match.group(1))
+    matches = []
+    for name in independent_names:
+        normalized = _normalize(name)
+        core = re.sub(SUFFIX + r"$", "", normalized)
+        # These issuer prefixes may be omitted in a short presentation title.
+        # The entire remaining core, including all issue/term numbers, must match.
+        short = re.sub(r"^(?:国泰君安|国泰海通|平安信托|中信信托|中粮信托|外贸信托|海通)", "", core)
+        if subject in {normalized, core, short}:
+            matches.append(name)
+    unique = {_normalize(name): name for name in matches}
+    return next(iter(unique.values())) if len(unique) == 1 else None
+
+
 def _analyze_docx(package, analyzer):
     parts = ["word/document.xml"]
     parts += sorted(n for n in package.namelist() if re.fullmatch(r"word/(?:header|footer)\d+\.xml", n))
     for part in parts:
         root = _xml(package.read(part))
+        independent_names = set()
+        for paragraph in root.iter(_q("w", "p")):
+            if _visible(paragraph):
+                independent_names.update(name for name in _names(_text(paragraph))
+                                         if not name.rstrip().endswith("产品表现"))
         title, context, previous = None, None, []
         table_index, paragraph_index = 0, 0
         # Walk in document order but process tables as one unit. Content-control
@@ -654,6 +685,10 @@ def _analyze_docx(package, analyzer):
                 location = {"part": part, "paragraph": paragraph_index, "page": None, "xpath": _xpath(node)}
                 names = _names(text, True)
                 explicit = _explicit_names(text)
+                performance_name = (_corroborated_performance_name(text, independent_names)
+                                    if explicit is None else None)
+                if performance_name:
+                    names = [performance_name]
                 subject = _subject_name(text)
                 # Some one-pagers split the full product title across adjacent
                 # paragraphs. Combine only short neighboring paragraphs ending

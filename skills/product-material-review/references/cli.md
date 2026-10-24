@@ -21,7 +21,7 @@ python -X utf8 $materialCli --help
 
 ## 合同身份与释义转换
 
-身份以合同中的名称条款和独立名称证据为准。两列释义表被转换为独立段落时，`指＋产品全名` 只有在释义上下文或紧邻完整定义标签、且去掉一次前缀后的全名与独立名称证据逐字相等时才合并候选；原文和定位不改。不同产品名称、不同编号、明确名称条款之间的冲突仍须核对。不能用 `--product`、改 `task.json` 状态/哈希或换旧运行时跳过身份检查。
+身份以合同中的名称条款和独立名称证据为准。两列释义表被转换为独立段落时，`指＋产品全名` 只有在释义上下文或紧邻完整定义标签、且去掉一次前缀后的全名与独立名称证据逐字相等时才合并候选；原文和定位不改。合同自身的不同产品名称、不同编号或明确名称条款之间的冲突仍须核对；模板6号而合同7号不属于该冲突，直接以合同为目标。不能用 `--product`、改 `task.json` 状态/哈希或换旧运行时跳过身份检查。
 
 更新引擎后重新执行 `analyze`，使用新生成的任务及审阅模板；不要复用旧引擎的任务快照。保留先前审阅记录供重新核对，但不得仅替换版本号冒充新任务。
 
@@ -65,11 +65,13 @@ python -X utf8 $materialCli accept `
 
 `apply` 自动将完整审阅稿写入 `updated_01/internal/`，把用户文件写入 `updated_01/delivery/`；读取 `update_result.json` 的 `deliveries` 和 `delivery_manifest.json` 获取实际交付路径。命令摘要只列交付结果和阻塞原因，不能把运行成功等同于每份文件已生成或验收通过。执行 `accept` 前，由 AI 按 [验收与交付](qa-and-delivery.md) 实际检查文件并填写 QA；仅检查内部稿不够。
 
+新模板任务自动记录 `editing_policy=template_minimal`，不需要另加策略参数，也不手改快照。先建立完整合同原文索引，再按模板需求读取候选及回查，不要求先制作一份全量结构化要素表。
+
 `analyze` 必需一份 `--contract` 和至少一份 `--material`；每份模板重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
 
 ### 高效读取与批量回查
 
-优先读取小视图，完整底稿继续保存在 `task.json`。同一输入和引擎不变时复用已有任务；字段补提只更新审阅记录，不重新生成 Word 基线。按 `next_offset` 读取下一页，不能把分页末尾当作已审阅全合同。
+先读目标概览和选中模板槽位，按需读取相关字段及原文；完整索引和候选继续保存在 `task.json`。同一输入和引擎不变时复用已有任务；字段补提只更新审阅记录，不重新生成 Word 基线。按 `next_offset` 读取下一页，不能把分页末尾当作已审阅全合同。
 
 ```powershell
 python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section overview
@@ -78,10 +80,10 @@ python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section 
 python -X utf8 $materialCli review-packet --task 'analysis/task.json' --section facts --field management_fee --field custody_fee
 python -X utf8 $materialCli search-contract --task 'analysis/task.json' --batch 'queries.json' --compact --out 'search.json'
 python -X utf8 $materialCli inspect-review --task 'analysis/task.json' --review 'review.json' --compact
-python -X utf8 $materialCli search-contract --task 'analysis/task.json' --retention-field distributor_risk_rating --compact --out 'rating-search.json'
+python -X utf8 $materialCli search-contract --task 'analysis/task.json' --pending-field current_open_date --compact --out 'date-search.json'
 ```
 
-批查文件形如 `[{"id":"fees","queries":["管理费","托管费"],"limit":20},{"id":"opening","queries":["开放期"],"limit":20}]`。每组单独限制返回数量；`truncated` 为真时继续读取，避免热门词挤掉其他字段。`--retention-field` 自动执行指定例外的完整强制同义词回查，返回 `required_review_block_ids`，供 AI 阅读后建立保留记录；它不证明合同未提。
+批查文件形如 `[{"id":"fees","queries":["管理费","托管费"],"limit":20},{"id":"opening","queries":["开放期"],"limit":20}]`。每组单独限制返回数量；`truncated` 为真时继续读取，避免热门词挤掉其他字段。`--pending-field` 用于任务已定义字段，自动回查字段名称/别名及必要同义词，返回 `required_review_block_ids`。阅读全部命中和相邻上下文，再建立 `template_pending` 原值保留、标黄及批注记录；它不证明合同未提。仅在 `review.new_fields` 新定义的字段先用常规查询或 `--batch`，验证时按定义补齐相关块。旧 `--retention-field` 只兼容旧白名单流程，新任务不使用它替代待确认标记。
 
 `contract` 分页提供唯一原文块，`slots` 保留完整槽文、新字段及不可编辑提示，`facts` 通过去重原文块保留依据。`--compact` 只减少重复元数据：实际命中与相邻原文保持完整，风险计数保留；需要详细风险位置时查完整报告。`inspect-review --compact` 不跳过任何校验。`--out` 落盘对应视图并仅向控制台返回路径和摘要，不要随后再次无条件读取整个大报告。
 
@@ -103,7 +105,7 @@ python -X utf8 $materialCli search-contract --task 'analysis/task.json' --retent
 
 | 模式 | 输入含义 | 区域选择依据 |
 | --- | --- | --- |
-| `template`（默认，可省略） | 合同提供目标内容，其他文件提供格式与展示需求 | 先选择模板自身主体及区域，再映射到合同产品；允许跨产品 |
+| `template`（默认，可省略） | 合同确定唯一目标；所选模板提供正文底稿、格式与展示需求 | 先选择模板自身主体及区域，再映射到合同产品；允许跨产品 |
 | `review`（显式指定） | 合同与已有同产品物料核对 | 根据合同身份选取对应产品区域；保留同品审阅的身份检查 |
 
 ### 多产品模板的选择
@@ -159,7 +161,7 @@ python -X utf8 $materialCli analyze `
 
 | 产物 | 用途 |
 | --- | --- |
-| `analysis/task.json` | 完整事实候选、合同目标、源模板主体、选中区域、字段槽位、检查项和版本依据 |
+| `analysis/task.json` | 完整合同原文索引与候选、合同目标、模板正文及选中区域、字段槽位、检查项、编辑策略和版本依据 |
 | `analysis/prepared_templates/<material_id>/原模板名.docx` | 仅含历史修订的 Word 物料生成此基线：全部旧修订已接受，原批注保留，绑定原件/准备副本双哈希 |
 | `analysis/review.template.json` | 本任务的审阅记录模板，由 AI 补充原子需求、合同回查及处置为 `review.json` |
 | `analysis/审阅说明.md` 与各 CSV | 可读底稿、逐物料需求和缺项检查 |
@@ -171,7 +173,7 @@ python -X utf8 $materialCli analyze `
 | 交付 PPTX 同目录的 `.delivery.json` | 选页映射、来源/输出哈希、结构校验及包含/排除的修改决定 |
 | `updated_01/accepted_result.json` | 实际验收结果；最终 `deliveries` 含原生/视觉状态，初始交付清单仍保留生成时状态 |
 
-`apply` 不覆盖原业务文件，同名目的文件已存在时应使用新的输出目录。模板模式须同时完成 `review.requirements` 原子需求核对和 `review.slot_dispositions` 槽位处置；只改名称、只补 `supplements` 或只接收自动需求种子不代表内容已核完。未处置或待补内容会保留待核，规则见 [审阅文件与依据](review.md)。修改来源、模式、模板选择、配置或分析代码后重新 `analyze` 并复核决定，不能把旧任务/审阅文件中的哈希改成新值。
+`apply` 不覆盖原业务文件，同名目的文件已存在时应使用新的输出目录。模板模式关联 `review.requirements` 原子需求与 `review.slot_dispositions` 槽位处置；已确认静态标签可复用自动保留记录，事实内容不能只改名称、只补 `supplements` 或自动接受种子。新任务按原文跨度最小替换，缺项保留原值并局部标黄、批注，记录 `template_pending`；不默认整槽占位。`ready` 文件可带 `pending_draft` 交付，但待确认信息不算完成，规则见 [审阅文件与依据](review.md)。修改来源、模式、模板选择、配置或分析代码后重新 `analyze` 并复核决定，不能把旧任务/审阅文件中的哈希改成新值。
 
 ## 字典与需求变更
 

@@ -29,7 +29,7 @@ def doctor():
     configs={name:(PROJECT/'config'/name).is_file() for name in required}
     modules={name:(PROJECT/'src'/(name+'.py')).is_file() for name in ('material_cli','material_task','contract_facts',
              'material_regions','material_writer','case_checks','corpus','qdii_pipeline','task_report','task_validation','ppt_delivery',
-             'contract_recheck','requirement_review','material_delivery','word_preparation','review_packet')}
+             'contract_recheck','requirement_review','material_delivery','word_preparation','review_packet','template_retention','text_spans')}
     return {'ok':sys.version_info >= (3,11) and all(dependencies.values()) and all(configs.values()) and all(modules.values()),
             'python':sys.version.split()[0],'executable':sys.executable,'runtime':str(PROJECT),
             'dependencies':dependencies,'configurations':configs,'modules':modules,
@@ -110,6 +110,7 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
     content_status='reviewed_output'
     pending_slots=[]
     retained_ids=[]
+    pending_ids=[]
     if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
         raise ReviewError('交付仅允许产品要素页，不能手工加入封面或市场页')
     missing = (set(suggestion['pages']) | set(suggestion.get('review_pages', []))) - set(pages)
@@ -125,14 +126,16 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
         if unreviewed:
             raise ReviewError('模板内容存在未处置或未审阅槽位，禁止交付：'+', '.join(sorted(unreviewed)))
         pending_slots=sorted(set(coverage['pending_slot_ids']) & selected_slots)
-        from material_delivery import retained_requirement_ids, content_status as reviewed_content_status
+        from material_delivery import retained_requirement_ids, pending_requirement_ids, content_status as reviewed_content_status
         retained_ids=retained_requirement_ids(checked, material_id, selected_slots)
+        pending_ids=pending_requirement_ids(checked, material_id, selected_slots)
         content_status=reviewed_content_status(pending_slots, retained_ids)
     from ppt_delivery import _pages, _read_package, _slide_order
     _,_,slides=_slide_order(_read_package(Path(record['output']).read_bytes()))
     pages=_pages(pages,len(slides))
     return {'pages':pages,'content_status':content_status,'pending_slot_ids':pending_slots,
             'template_retained_requirement_ids':retained_ids,
+            'template_pending_requirement_ids':pending_ids,
             'selection':suggestion}
 
 
@@ -173,13 +176,15 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
                     pending_slot_ids=pending_slots,template_source_product=material.get('template_source_product'),
                     naming_metadata=naming,
                     template_retained_requirement_ids=selection.get('template_retained_requirement_ids',[]),
+                    template_pending_requirement_ids=selection.get('template_pending_requirement_ids',[]),
                     note='只交付所选产品要素页；完整稿中的其他页及其修改不在本交付中，待核信息不因此自动结案。')
     write_json(manifest,exported)
     return {'output':str(output),'manifest':str(manifest),'pages':pages,'valid':True,
             'included_decisions':included,'excluded_decisions':excluded,'visual_status':'not_checked',
             'content_status':content_status,'pending_slot_ids':pending_slots,
             'naming_metadata':naming,
-            'template_retained_requirement_ids':selection.get('template_retained_requirement_ids',[])}
+            'template_retained_requirement_ids':selection.get('template_retained_requirement_ids',[]),
+            'template_pending_requirement_ids':selection.get('template_pending_requirement_ids',[])}
 
 
 def main():
@@ -199,6 +204,7 @@ def main():
     search_input.add_argument('--query',action='append')
     search_input.add_argument('--batch',help='分组JSON数组，每组有id、queries及可选limit')
     search_input.add_argument('--retention-field',help='指定缺项例外字段；强制同义词全量回查并列出须审阅原文块')
+    search_input.add_argument('--pending-field',help='按字段全量回查；缺项可保留原值、局部标黄并批注，仍计待核')
     search.add_argument('--limit',type=int,default=20)
     search.add_argument('--out')
     search.add_argument('--compact',action='store_true',help='保留完整命中正文，仅压缩重复覆盖元数据')
@@ -235,7 +241,12 @@ def main():
         elif args.command=='search-contract':
             from contract_recheck import search_contract
             from review_packet import batch_search_contract, compact_search_report
-            if args.retention_field:
+            if args.pending_field:
+                from template_retention import pending_search
+                _require_fresh_task(task)
+                value=pending_search(task,args.pending_field)
+                if args.compact:value=compact_search_report(value)
+            elif args.retention_field:
                 from template_retention import retention_search
                 _require_fresh_task(task)
                 value=retention_search(task,args.retention_field)

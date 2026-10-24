@@ -6,49 +6,49 @@
   ],
   "files": [
     {
-      "bytes": 4208,
+      "bytes": 4514,
       "path": "INSTALL.md",
-      "sha256": "a5868a72f8a50f9cb5e364e72a5852a5841c92cb5abd12b4b09fc67529724b3e"
+      "sha256": "cdd910cea4e2933965ca360acdb5709b181fe06b1ac1d942d552c425ccc003c7"
     },
     {
-      "bytes": 8532,
+      "bytes": 6380,
       "path": "SKILL.md",
-      "sha256": "3d7bf09f5457335729451c559cf7a90d6af585ade428b6088a4bfa9345090235"
+      "sha256": "3f891d0c76463afc64be905debb078b5b875ac06c004b6e4e9dc461f17d46c5c"
     },
     {
       "bytes": 6,
       "path": "VERSION",
-      "sha256": "fe2b7c237b5a6e42818aa3e4f7fc5820f49c32289c32c96260ef89a8c8f6d3d7"
+      "sha256": "64d23f858ef51b0f996e4966d4e27c0371b437e2d2787890b1f7ad22d4ec5663"
     },
     {
-      "bytes": 557,
+      "bytes": 581,
       "path": "agents/openai.yaml",
-      "sha256": "69e8a7afccf0dfe1571d70964089bf72f103bfa6cc795db77345067066fca614"
+      "sha256": "1f30d8bfcd2da8fb790b25a69f1eb24fdd9b1d2fc033a3915bffac970608a123"
     },
     {
-      "bytes": 17091,
+      "bytes": 18021,
       "path": "references/cli.md",
-      "sha256": "28cfd7cdc9c394762ca2be3177d4801cfc856d4490b6a2323edb827dec919a02"
+      "sha256": "a355baf2483c3f28ad785efc7b43957f43a5b9c043a3f749d1b892734a585dee"
     },
     {
-      "bytes": 9327,
+      "bytes": 10318,
       "path": "references/qa-and-delivery.md",
-      "sha256": "65c0f640ee3ced6d2dd33c41e597a97a2eb2c2764aed4b40bdcb762b3f6153ac"
+      "sha256": "31a40e0ed76b746b1f64782e4d91c4fe12bad3f3523f9c1d321c95e0fefc21ac"
     },
     {
-      "bytes": 8957,
+      "bytes": 6331,
       "path": "references/requirements.md",
-      "sha256": "a9005bc14489cffd1a4f7771ed4880c7ca7196fefd0c1c311c968ff0a2c745af"
+      "sha256": "0cf1e49a507465ce17bf91dfae79622a76627772f08ff5872db43f67d08a0914"
     },
     {
-      "bytes": 13298,
+      "bytes": 8206,
       "path": "references/review.md",
-      "sha256": "77807ce6c99a60d4d5683e6a7377332f511234d948f01f6a1d47ef698b2386f7"
+      "sha256": "4f90cc436f80e2cc0782b1ac1e67abe009265c2df8c653e14f9b1d8e8870addc"
     },
     {
-      "bytes": 3293,
+      "bytes": 8058,
       "path": "references/template-retention.md",
-      "sha256": "7452a9bbf95763080ef5759b9c21b6254ccab2ce0561f2ffd597d1db0b219dab"
+      "sha256": "257a35c8a8dd7c08baf06b71219aebb92494a80528f7d31053ac5cd3e974dac2"
     },
     {
       "bytes": 25,
@@ -81,9 +81,9 @@
       "sha256": "cebc5e0493d36897f4c0ed0641a1cda42c3bd6d9e56c5fd7c9af2ab328dd764d"
     },
     {
-      "bytes": 17081,
+      "bytes": 17618,
       "path": "runtime/src/contract_recheck.py",
-      "sha256": "a5d7acdd54e3ee3764c99ec17087dc163e4ebcc81b12e1039bba9137f5d7b8f7"
+      "sha256": "1f67866ad770f9faa49ce6be92f3acefe6719398985969400ffa7aef69b6b187"
     },
     {
       "bytes": 37424,
@@ -91,29 +91,29 @@
       "sha256": "0a613b506888558d8c99d411f45329f69b83382eacf2b2e3e427f674d32dc876"
     },
     {
-      "bytes": 20395,
+      "bytes": 21234,
       "path": "runtime/src/material_cli.py",
-      "sha256": "9ab5d85ce8fdbf1b0cd36735b95e3cc30eac4571265e84f4e32a6834525ffe4f"
+      "sha256": "42df1fb91ab15987bcda192238b0ff27a8776d2d682ac6bdb5bd319c68d75089"
     },
     {
-      "bytes": 24870,
+      "bytes": 25919,
       "path": "runtime/src/material_delivery.py",
-      "sha256": "e40562d55931f74a6386540c6abe5e89d8478c68d077b8091b1a04af7be8d79e"
+      "sha256": "f7313eea074fe85805250a196b41bd3d45ec8e5c4abe1fcecb36d83b9c88eea8"
     },
     {
-      "bytes": 53860,
+      "bytes": 55652,
       "path": "runtime/src/material_regions.py",
-      "sha256": "3ef8cfbf1aee70c4a5d52f85630a184cf223cb85708c296f96c8059466b43a22"
+      "sha256": "b4cb2fab1822c67fca2ceb130f7cb04b50f77ab314c15a7e5232492d47f0de45"
     },
     {
-      "bytes": 42018,
+      "bytes": 45627,
       "path": "runtime/src/material_task.py",
-      "sha256": "af36be3af34460fb29cade41375b1aed37e2df67448c4afc2804a60bc44bb3cc"
+      "sha256": "373804d4f74089affe15afc87bbe36f84c39b68b4f1aa11817325e2cd4f39aac"
     },
     {
-      "bytes": 43412,
+      "bytes": 53607,
       "path": "runtime/src/material_writer.py",
-      "sha256": "4843f64bd9b3550c509a4b9534eaec0d9696eedf3f5942cddce052ea7f364d9a"
+      "sha256": "9cd4b6bf5ea8173fe62a04b0b2c143b03671d1151717bcd3e6de854b0ba361a8"
     },
     {
       "bytes": 19144,
@@ -126,19 +126,19 @@
       "sha256": "a4e68ea3c401e791a6896821060a523c691c46f5f3088ab52cb8628176e5edd8"
     },
     {
-      "bytes": 17058,
+      "bytes": 21921,
       "path": "runtime/src/requirement_review.py",
-      "sha256": "7de1e8da42a4d16ba931c573ad9cd087a44b6498e09024426061f05902dbc3e8"
+      "sha256": "44cbe038dd2993e95022f006db14ce0d68cac810e1469baf923bc0ae4b86b9fc"
     },
     {
-      "bytes": 12188,
+      "bytes": 12400,
       "path": "runtime/src/review_packet.py",
-      "sha256": "7b3b4fc3d35f2c4946cf00ad5f55edd772cb8e68ce25b76bb7ec98d16a247a09"
+      "sha256": "1d09d69f5008ba7d64e9d91806d15085ba953a623e205efba92e6bb77bda2cb4"
     },
     {
-      "bytes": 9906,
+      "bytes": 10861,
       "path": "runtime/src/task_report.py",
-      "sha256": "d6ce9c175cf07bf602e0cad980da84878c4e1027697e1ba9297967d2a08fc1a3"
+      "sha256": "7b6dfec3184439f1ddaf5836aadf89b8cae86279dc42f1ebe0809899bdb20078"
     },
     {
       "bytes": 8675,
@@ -146,9 +146,14 @@
       "sha256": "1ea55895191db9ddb1080918a4e73e7f8761f4ecc7bfbbb3d466e0d16da10297"
     },
     {
-      "bytes": 9808,
+      "bytes": 16504,
       "path": "runtime/src/template_retention.py",
-      "sha256": "6c7065f018c7b8d1749a681fc02a29d51ade93578ac02821b1ff3ea311e0f5dc"
+      "sha256": "4299e77f8c4f9c1615ecf22be11b8d588ff8baf6ef8ec59f7bc89032229f32d2"
+    },
+    {
+      "bytes": 1188,
+      "path": "runtime/src/text_spans.py",
+      "sha256": "9101abd1b58c16a64ba79a913aa1e73497b43e81e1c2018a05d1b1decbdcba28"
     },
     {
       "bytes": 11556,
@@ -181,8 +186,9 @@
     "task_report",
     "task_validation",
     "template_retention",
+    "text_spans",
     "word_preparation"
   ],
   "source_policy": "verified_runtime_and_public_metadata_only",
-  "version": "1.2.5"
+  "version": "1.3.0"
 }
