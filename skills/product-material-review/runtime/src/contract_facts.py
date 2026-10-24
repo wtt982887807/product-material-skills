@@ -123,9 +123,28 @@ def _docx_metadata(path, blocks):
     return issues
 
 
+def _definition_context(block, previous):
+    if any(re.search(r"释义|名词解释|术语定义", heading)
+           for heading in block.get("section_path", [])):
+        return True
+    if previous is None or previous.get("role") in {"contents", "header_footer", "notes"}:
+        return False
+    if previous.get("location", {}).get("part") != block.get("location", {}).get("part"):
+        return False
+    # Some converters discard heading styles as well as table wrappers. Only an
+    # entire definition label counts; a sentence mentioning 本计划 is not enough.
+    label = re.sub(r"\s+", "", previous["text"]).strip("：:")
+    terms = re.split(r"[、，,]|或", label)
+    allowed = {"集合资产管理计划", "资产管理计划", "集合计划", "本集合计划",
+               "本资产管理计划", "产品", "本产品", "本计划", "基金", "本基金",
+               "信托计划", "本信托计划", "本信托"}
+    return bool(terms) and all(term in allowed for term in terms)
+
+
 def _identity(blocks, issues):
     explicit, cover = {}, {}
-    for block in blocks:
+    definition_blocks = set()
+    for index, block in enumerate(blocks):
         if block.get("role") in {"contents", "header_footer", "notes"}:
             continue
         text = block["text"].strip()
@@ -139,9 +158,23 @@ def _identity(blocks, issues):
         match = re.fullmatch(r"(.{3,100}?" + PRODUCT_END + r")(?:资产管理合同|管理合同|信托合同|基金合同|合同)?", text)
         if match and not re.search(r"[：:|]", text) and not EXPLICIT_NAME.match(text):
             cover.setdefault(match[1], []).append(block)
+            if _definition_context(block, blocks[index - 1] if index else None):
+                definition_blocks.add(id(block))
     candidates = deepcopy(explicit)
+    independent_names = set(explicit) | {
+        name for name, evidence in cover.items()
+        if not name.startswith("指") or any(id(b) not in definition_blocks for b in evidence)
+    }
     for name, evidence in cover.items():
-        candidates.setdefault(name, []).extend(evidence)
+        for block in evidence:
+            canonical = name
+            if (id(block) in definition_blocks and name.startswith("指")
+                    and name[1:].strip() in independent_names):
+                # Remove exactly one definition prefix only when another name
+                # anchor already corroborates the full remainder. Keep raw text
+                # and location; different product names still remain conflicts.
+                canonical = name[1:].strip()
+            candidates.setdefault(canonical, []).append(block)
     if len(candidates) != 1:
         issues.append(_issue("product_identity_conflict" if candidates else "product_identity_unresolved", "合同正文产品身份存在冲突。" if candidates else "合同正文未识别到可确认产品名称；不使用文件名或目录补足。", candidates=list(candidates)))
         return {"name": None, "aliases": [], "status": "conflict" if candidates else "unresolved", "candidates": list(candidates), "source_locations": []}
