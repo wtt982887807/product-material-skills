@@ -26,9 +26,20 @@ Word/PowerPoint 不参与核心 OOXML 分析和局部修改；原生打开与视
 ```powershell
 python -X utf8 $materialCli analyze `
   --contract '输入/合同.docx' `
-  --material '输入/一页通.docx' `
-  --material '输入/路演PPT.pptx' `
+  --material '输入/一页通模板.docx' `
+  --material '输入/PPT模板.pptx' `
+  --material-mode template `
   --out '本次审阅/analysis'
+
+python -X utf8 $materialCli search-contract `
+  --task '本次审阅/analysis/task.json' `
+  --query '最低保有份额' --query '赎回后份额' `
+  --limit 20 --out '本次审阅/合同回查.json'
+
+python -X utf8 $materialCli inspect-review `
+  --task '本次审阅/analysis/task.json' `
+  --review '本次审阅/review.json' `
+  --out '本次审阅/审阅覆盖检查.json'
 
 python -X utf8 $materialCli apply `
   --task '本次审阅/analysis/task.json' `
@@ -52,9 +63,40 @@ python -X utf8 $materialCli deliver-ppt `
   --out '本次审阅/delivery/产品要素页.pptx'
 ```
 
-`analyze` 必需一份 `--contract` 和至少一份 `--material`；每份物料重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
+`analyze` 必需一份 `--contract` 和至少一份 `--material`；每份模板重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
 
-`deliver-ppt` 默认使用无歧义的目标要素页建议。需要显式指定经审核的原始页码时，追加 `--pages '22,23' --review-reason '本次逐页核对后的具体依据'`；示例页码不代表任何产品的固定页码。没有明确目标区域、含其他产品区域或含身份待核要素的页面都会被拒绝，手动页码与理由不能绕过；要保留混页中的目标内容，需要另做区域隔离，当前 CLI 不执行对象级隔离。详见 [验收与 PPT 交付](qa-and-delivery.md)。
+`search-contract` 在任务绑定的合同原文块中检索，`--query` 可重复，`--limit` 限制返回数量；输出包含命中文本、位置、章节及前后文等来源信息。省略 `--out` 时读取命令输出。AI 仍需阅读上下文并作语义判断；无命中不证明合同没有该项。
+
+`inspect-review` 在回写前检查审阅数据、合同补提绑定、原子需求及槽位覆盖，定位需要继续核对的内容。返回 `semantic_review_complete`、`pending_checks`、`template_coverage`、`requirement_coverage`、`contract_rechecks`；前者只表示记录满足完整核对条件，不证明 AI 判断一定正确，也不代表业务文件已生成或通过原生/视觉验收。它不能替代回写后的 `validate`。完整需求记录见 [需求发现与合同回查](requirements.md)。
+
+这两个只读检查命令的 `--out` 应指定新的结果文件，不能覆盖任务、审阅记录或输入业务文件（包括已登记的合同转换副本）。提供 `--out` 后，完整内容写入文件，标准输出仅返回摘要和文件路径，避免长合同报告占满会话；AI 应继续读取报告中的所需部分。
+
+| 模式 | 输入含义 | 区域选择依据 |
+| --- | --- | --- |
+| `template`（默认，可省略） | 合同提供目标内容，其他文件提供格式与展示需求 | 先选择模板自身主体及区域，再映射到合同产品；允许跨产品 |
+| `review`（显式指定） | 合同与已有同产品物料核对 | 根据合同身份选取对应产品区域；保留同品审阅的身份检查 |
+
+### 多产品模板的选择
+
+AI 读取封面、要素表及上下文，分别确认每份模板的主体。不能因为合同名称出现在模板某页就自动选该页；信托模板中的底层资管页即使与合同同名，也不是信托自身的模板页。清晰的单主体模板可直接分析；需显式选择时由 AI 建立以下映射文件，再在 `analyze` 增加 `--template-map '本次审阅/template-map.json'`：
+
+```json
+{
+  "templates": [
+    {
+      "path": "输入/PPT模板.pptx",
+      "product_name": "从本次模板实际识别出的主体名称",
+      "reason": "封面及主体要素表一致；排除底层产品要素页"
+    }
+  ]
+}
+```
+
+路径必须对应本次 `--material` 输入，名称必须来自模板中可观察的主体；映射可仅列需要显式选择的输入。重复映射、非本次输入或凭空的产品名称不能用来绕过选择。业务用户无需写 JSON；只有实际资料无法分辨应采用哪一模板主体时才向用户核实。选择方式、模式及依据随任务绑定，变更后重新分析。
+
+模板模式的 `regions[].status=target` 表示选中的源模板区域，承载的目标内容来自合同；`other` 表示未选模板区域，`ambiguous` 表示选择仍待核。源模板主体与合同目标分别记录，不要求同名，也不能通过修改快照状态把未选区变成可编辑。
+
+`deliver-ppt` 默认使用无歧义的选中要素页建议。模板模式按选定模板主体选页，内容随后按合同转换；`review` 模式按合同产品选页。需要显式指定经审核的原始页码时，追加 `--pages '22,23' --review-reason '本次逐页核对后的具体依据'`；示例页码不代表任何产品的固定页码。没有明确选中区域、含未选产品区域或含身份待核要素的页面都会被拒绝，手动页码与理由不能绕过；要保留混页中的选中内容，需要另做区域隔离，当前 CLI 不执行对象级隔离。详见 [验收与 PPT 交付](qa-and-delivery.md)。
 
 ## 旧 DOC 的转换登记
 
@@ -81,8 +123,8 @@ python -X utf8 $materialCli analyze `
 
 | 产物 | 用途 |
 | --- | --- |
-| `analysis/task.json` | 完整事实候选、来源、产品区域、字段槽位、检查项和版本依据 |
-| `analysis/review.template.json` | 本任务的审阅记录模板，由 AI 维护为 `review.json` |
+| `analysis/task.json` | 完整事实候选、合同目标、源模板主体、选中区域、字段槽位、检查项和版本依据 |
+| `analysis/review.template.json` | 本任务的审阅记录模板，由 AI 补充原子需求、合同回查及处置为 `review.json` |
 | `analysis/审阅说明.md` 与各 CSV | 可读底稿、逐物料需求和缺项检查 |
 | `updated_01/update_result.json` | 每份输出路径、哈希、状态、修改验证和未决检查 |
 | `updated_01/review.applied.json` | 实际执行的审阅记录 |
@@ -90,11 +132,11 @@ python -X utf8 $materialCli analyze `
 | `delivery/产品要素页.pptx` | 仅含确认目标产品要素页的 PPT 副本 |
 | `delivery/产品要素页.delivery.json` | 选页映射、来源与输出哈希、结构校验、包含/排除的修改决定和待验收状态 |
 
-`apply` 不覆盖原业务文件，同名目的文件已存在时应使用新的输出目录。修改来源或分析代码后重新 `analyze` 并复核决定，不能把旧任务/审阅文件中的哈希改成新值。
+`apply` 不覆盖原业务文件，同名目的文件已存在时应使用新的输出目录。模板模式须同时完成 `review.requirements` 原子需求核对和 `review.slot_dispositions` 槽位处置；只改名称、只补 `supplements` 或只接收自动需求种子不代表内容已核完。未处置或待补内容会保留待核，规则见 [审阅文件与依据](review.md)。修改来源、模式、模板选择、配置或分析代码后重新 `analyze` 并复核决定，不能把旧任务/审阅文件中的哈希改成新值。
 
 ## 字典与需求变更
 
-实际执行的字段字典位于 `runtime/config/field_dictionary.json` 和 `runtime/config/contract_field_extensions.json`。出现有依据的新字段或别名时，由 AI 审阅后维护，并保留已有字段的稳定 `field_id`。每轮 `analyze` 重新识别本次逐物料需求；历史样例的出现频次不自动成为所有产品或渠道的必填规则。配置变更后必须重新分析和审阅，配置哈希会使旧任务对应的审阅失效。当前没有自动学习或全库需求矩阵合并命令。
+公共字段字典位于 `runtime/config/field_dictionary.json` 和 `runtime/config/contract_field_extensions.json`。字典不是白名单：模板新增字段先在 `review.new_fields` 中定义，由 AI 回查合同并登记 `contract_rechecks`，即可在本任务核对；不必先修改公共配置。经复核具有复用价值的字段或别名再维护到公共字典，并保留稳定 `field_id`。每轮重新识别实际需求，历史频次不是所有产品或渠道的必填规则。公共配置变更后重新分析和审阅，配置哈希会使旧任务失效。当前没有自动学习、全库需求矩阵合并或自动更新命令。
 
 ## 迁移边界
 
