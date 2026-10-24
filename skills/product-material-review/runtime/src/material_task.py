@@ -11,10 +11,14 @@ from datetime import datetime, timezone, timedelta
 from hashlib import sha256
 import json
 from pathlib import Path
+import re
 import shutil
 
-CORE_VERSION = '2.1.0'
+CORE_VERSION = '2.3.0'
 PROJECT = Path(__file__).resolve().parents[1]
+PENDING_PLACEHOLDER = '【待补充】'
+STATIC_TITLES = {'产品要素','产品要素表','产品概要','产品基本信息','基本信息','产品信息',
+                 '风险提示','重要提示','产品概况','投资策略','投资范围','收益分配','费用说明'}
 
 
 class ReviewError(ValueError):
@@ -43,7 +47,7 @@ def source_version_matches(source):
 
 
 def engine_hashes():
-    modules=['contract_facts.py','material_regions.py','case_checks.py','material_task.py','material_writer.py',
+    modules=['contract_facts.py','contract_recheck.py','requirement_review.py','material_regions.py','case_checks.py','material_task.py','material_writer.py',
              'corpus.py','qdii_pipeline.py','task_validation.py','task_report.py','ppt_delivery.py','material_cli.py']
     values={n:file_hash(PROJECT/'src'/n) for n in modules if (PROJECT/'src'/n).exists()}
     values.update({'config/'+p.name:file_hash(p) for p in sorted((PROJECT/'config').glob('*.json'))
@@ -72,6 +76,57 @@ def _check_ids(values, key):
         raise ReviewError(f'{key}为空或重复')
 
 
+def is_template_task(task):
+    return task.get('material_mode') == 'template'
+
+
+def template_required_slots(material):
+    """Only selected template content that can appear in the delivery is required."""
+    return [s for s in material['slots'] if s.get('product_status') == 'target'
+            and s.get('delivery_required', True)]
+
+
+def _static_slot(slot):
+    text = re.sub(r'[\s：:]+', '', slot['text'])
+    if re.search(r'\d|[%％]', text): return False
+    return (text in STATIC_TITLES or (slot.get('content_role') == 'label_only'
+            and text == re.sub(r'[\s：:]+', '', slot.get('label', '')) and bool(text)))
+
+
+def _mapped_field(slot, record, *, required=True):
+    field = slot.get('field_id')
+    supplied = record.get('target_field_id')
+    if supplied and supplied != field:
+        if field and not (field in {'opening_schedule','redemption_window'} and supplied == 'current_open_date'):
+            raise ReviewError('已识别字段不能改映射为不相关字段')
+        if not record.get('field_mapping_reason'):
+            raise ReviewError('字段重映射须填写映射理由')
+        field = supplied
+    if required and not field:
+        raise ReviewError('未分类槽位须明确目标字段及映射理由')
+    return field
+
+
+def _final_slot_text(slot, decisions):
+    text = slot['text']
+    ranges = []
+    for decision in decisions:
+        if decision['kind'] not in {'replace_text','placeholder'}: continue
+        start = text.find(decision['before'])
+        ranges.append((start, start + len(decision['before']), decision['after']))
+    ranges.sort()
+    if any(right[0] < left[1] for left, right in zip(ranges, ranges[1:])):
+        raise ReviewError('同一槽位替换范围重叠')
+    for start, end, after in reversed(ranges): text = text[:start] + after + text[end:]
+    return text
+
+
+def _number_tokens(text):
+    # Normalize harmless display differences, e.g. 0.50% versus 0.5%.
+    from decimal import Decimal
+    return {str(Decimal(x).normalize()) for x in re.findall(r'\d+(?:\.\d+)?', text)}
+
+
 def validate_review(task, review):
     """Bind every change to analyzed source/product/slot, with evidence and review."""
     if task.get('engine_hashes') != engine_hashes():
@@ -79,6 +134,9 @@ def validate_review(task, review):
     if review.get('task_id') != task['task_id']:
         raise ReviewError('审阅文件不属于本任务；请重新分析来源版本')
     materials = {m['material_id']: m for m in task['materials']}
+    template_mode = is_template_task(task)
+    from requirement_review import enabled, validate_requirements, validate_operation_requirements, bind_slot_requirements
+    atomic_mode = enabled(task)
     hashes = review.get('source_hashes', {})
     for mid, material in materials.items():
         if hashes.get(mid) != material['source']['sha256']:
@@ -97,6 +155,18 @@ def validate_review(task, review):
             raise ReviewError('补充信息须有字段、值和来源说明')
         item['provenance'] = 'user_supplied'
     supplement_map = {s['supplement_id']: s for s in supplements}
+    rechecks = {}
+    requirement_state = None
+    if atomic_mode or review.get('contract_rechecks') or review.get('new_fields'):
+        from contract_recheck import validate_rechecks
+        try:
+            rechecks = validate_rechecks(task, review)
+            if atomic_mode:requirement_state = validate_requirements(task, review, rechecks)
+        except ValueError as exc:raise ReviewError(str(exc)) from exc
+
+    def requirement_operation(record, mid, sid):
+        try:validate_operation_requirements(requirement_state,record,mid,sid)
+        except ValueError as exc:raise ReviewError(str(exc)) from exc
 
     def evidence_check(evidence, field_id=None, replacing=False):
         if not evidence:
@@ -111,6 +181,10 @@ def validate_review(task, review):
             elif typ == 'supplement' and eid in supplement_map:
                 if field_id and supplement_map[eid]['field_id'] != field_id:
                     raise ReviewError('补充信息字段与目标字段不一致')
+                authoritative = True
+            elif typ == 'recheck' and eid in rechecks:
+                if replacing and rechecks[eid]['field_id'] != field_id:
+                    raise ReviewError('合同回查依据字段与目标字段不一致')
                 authoritative = True
             elif typ == 'material' and eid in materials:
                 pass  # May explain an unresolved comment; cannot alone replace facts.
@@ -133,36 +207,164 @@ def validate_review(task, review):
         if slot.get('product_status') != 'target' or not region or region.get('status') != 'target':
             raise ReviewError('仅允许修改已确定属于目标产品的区域')
         kind = d.get('kind')
-        if kind not in ('replace_text', 'comment'): raise ReviewError('不支持的修改类型')
-        if kind == 'replace_text' and not slot.get('editable'): raise ReviewError('目标槽位不可安全编辑')
+        if kind not in ('replace_text', 'comment', 'placeholder'): raise ReviewError('不支持的修改类型')
+        if kind == 'placeholder' and not template_mode: raise ReviewError('占位决定仅用于模板模式')
+        if kind in {'replace_text','placeholder'} and not slot.get('editable'): raise ReviewError('目标槽位不可安全编辑')
         if not d.get('reviewed') or not d.get('reason'): raise ReviewError('修改必须经过审阅并填写理由')
-        mapped_field = slot.get('field_id')
-        if kind == 'replace_text' and not mapped_field:
-            mapped_field = d.get('target_field_id')
-            if not mapped_field or not d.get('field_mapping_reason'):
-                raise ReviewError('未分类槽位须明确目标字段及映射理由')
-        evidence_check(d.get('evidence'), mapped_field, kind == 'replace_text')
+        if atomic_mode and kind == 'replace_text':
+            requirement_operation(d,mid,slot['slot_id'])
+        else:
+            mapped_field = _mapped_field(slot, d, required=kind == 'replace_text')
+            evidence_check(d.get('evidence'), mapped_field, kind == 'replace_text')
         before = d.get('before', '')
         if not before or slot['text'].count(before) != 1:
             raise ReviewError('修改前原文须在所选槽位中精确且唯一出现')
-        if kind == 'replace_text' and (not isinstance(d.get('after'), str) or d['after'] == before):
+        if kind == 'placeholder' and (before != slot['text'] or d.get('after') != PENDING_PLACEHOLDER):
+            raise ReviewError('缺项占位必须整槽替换为【待补充】，不可保留旧模板数值')
+        if kind in {'replace_text','placeholder'} and (not isinstance(d.get('after'), str) or d['after'] == before):
             raise ReviewError('替换文本为空类型或未发生变化')
         key = (mid, slot['part'], slot['xpath'], kind, before)
         if key in used: raise ReviewError('同一原文范围重复修改；请合并为一次审阅决定')
         used.add(key)
-        operations[mid].append({'op_id': d['decision_id'], 'kind': kind,
+        operations[mid].append({'op_id': d['decision_id'], 'kind': 'replace_text' if kind == 'placeholder' else kind,
                                 'part': slot['part'], 'xpath': slot['xpath'], 'before': before,
                                 'after': d.get('after', ''), 'reason': d['reason'],
                                 'evidence': d['evidence'], 'region_id': slot['region_id']})
+    coverage = {}
+    dispositions = {}
+    if not template_mode and review.get('slot_dispositions'):
+        raise ReviewError('槽位内容处置仅用于模板模式')
+    for mid, material in materials.items():
+        if not template_mode: continue
+        required = template_required_slots(material)
+        coverage[mid] = {'required_slot_ids':[s['slot_id'] for s in required],
+                         'unreviewed_slot_ids':[s['slot_id'] for s in required],
+                         'pending_slot_ids':[], 'completed_slot_ids':[], 'final_texts':{}}
+    for record in review.get('slot_dispositions', []):
+        mid, sid = record.get('material_id'), record.get('slot_id')
+        key = (mid, sid)
+        if mid not in coverage or sid not in coverage[mid]['required_slot_ids'] or key in dispositions:
+            raise ReviewError('内容处置槽位不在交付范围内或重复')
+        slot = next(s for s in materials[mid]['slots'] if s['slot_id'] == sid)
+        if not record.get('reviewed') or not record.get('reason'):
+            raise ReviewError('槽位内容处置必须审阅并填写理由')
+        action = record.get('action')
+        if action not in {'rewrite','retain_verified','pending_placeholder','not_applicable','retain_static'}:
+            raise ReviewError('未知槽位内容处置动作')
+        peers = [d for d in decisions if d['material_id'] == mid and d['slot_id'] == sid]
+        replacements = [d for d in peers if d['kind'] in {'replace_text','placeholder'}]
+        ids = record.get('decision_ids')
+        if (not isinstance(ids, list) or len(ids) != len(set(ids))
+                or set(ids) != {d['decision_id'] for d in replacements}):
+            raise ReviewError('内容处置须准确关联本槽位全部文本修改决定')
+        final = _final_slot_text(slot, peers)
+        if not isinstance(record.get('final_text'), str) or record['final_text'] != final:
+            raise ReviewError('内容处置最终正文与实际修改结果不一致')
+        source_product=materials[mid].get('template_source_product') or {}
+        normalized=lambda value: re.sub(r'[\s·•\-—（）()【】]', '', value)
+        target_identity=task['target_product'] if isinstance(task['target_product'],dict) else {'name':target}
+        destination_names=[target]+target_identity.get('aliases',[])
+        old_names=[source_product.get('name')]+source_product.get('aliases',[])
+        for old_name in (name for name in old_names if isinstance(name,str) and name.strip()):
+            if (normalized(old_name) not in {normalized(name) for name in destination_names}
+                    and normalized(old_name) in normalized(final)):
+                raise ReviewError('最终正文仍含旧模板主体名称；须按合同换填或保留待补状态')
+        if action == 'retain_static':
+            if replacements or not _static_slot(slot):
+                raise ReviewError('静态保留仅适用于明确字段标签或通用标题，不能保留产品事实或数值')
+            evidence_check(record.get('evidence'))
+        elif action == 'pending_placeholder':
+            if final != PENDING_PLACEHOLDER or any(d['kind'] != 'placeholder' for d in replacements):
+                raise ReviewError('待补处置必须用整槽占位决定清除旧内容')
+            if not replacements and slot['text'] != PENDING_PLACEHOLDER:
+                raise ReviewError('待补处置缺少实际占位修改')
+            evidence_check(record.get('evidence'))
+        else:
+            if atomic_mode:
+                requirement_operation(record,mid,sid)
+            else:
+                field = _mapped_field(slot, record)
+                evidence_check(record.get('evidence'), field, replacing=True)
+            if any(d['kind'] == 'placeholder' for d in replacements):
+                raise ReviewError('缺项占位不能标记内容完成')
+            if action == 'rewrite' and not replacements:
+                raise ReviewError('重写处置必须关联实际正文修改')
+            if action == 'retain_verified':
+                if replacements: raise ReviewError('有正文修改应使用rewrite处置')
+                source_map={**{('fact',fid):f for fid,f in facts.items()},**{('recheck',fid):f for fid,f in rechecks.items()},
+                            **{('supplement',fid):f for fid,f in supplement_map.items()}}
+                evidence_text='\n'.join(str(source_map[(e['type'],e['id'])].get('raw_text',''))+' '+
+                    str(source_map[(e['type'],e['id'])].get('value','')) for e in record['evidence']
+                    if (e['type'],e['id']) in source_map)
+                if not _number_tokens(final).issubset(_number_tokens(evidence_text)):
+                    raise ReviewError('保留正文中的数值未获所引合同或补充依据支持')
+            if action == 'not_applicable' and final not in {'','不适用'}:
+                raise ReviewError('不适用处置必须删除旧内容或明确写入不适用')
+        dispositions[key] = record
+        item = coverage[mid]
+        item['unreviewed_slot_ids'].remove(sid)
+        item['final_texts'][sid] = final
+        item['pending_slot_ids' if action == 'pending_placeholder' else 'completed_slot_ids'].append(sid)
+    requirement_coverage={}
+    if atomic_mode:
+        try:requirement_coverage=bind_slot_requirements(requirement_state,coverage,dispositions)
+        except ValueError as exc:raise ReviewError(str(exc)) from exc
     checks = {c['check_id']: c for c in task.get('checks', [])}
     resolutions = review.get('resolutions', [])
-    resolved = set()
+    resolved = {cid for cid, c in checks.items() if c.get('type') == 'template_content_review'
+                and (c.get('material_id'),c.get('slot_id')) in dispositions
+                and c['slot_id'] in coverage[c['material_id']]['completed_slot_ids']}
+    resolution_ids = set()
     for r in resolutions:
         cid = r.get('check_id')
-        if cid not in checks or cid in resolved: raise ReviewError('结案检查项不存在或重复')
+        if cid not in checks or cid in resolution_ids:
+            raise ReviewError('结案检查项不存在或重复')
+        resolution_ids.add(cid)
         if not r.get('reason') or not r.get('reviewed'): raise ReviewError('检查项结案需要审阅理由')
         check=checks[cid]
+        if check.get('requires_reanalysis'):
+            raise ReviewError('模板范围或结构检查不能仅凭结案声明跳过；须处理来源模板后重新分析')
+        if template_mode and check.get('slot_id'):
+            disposition = dispositions.get((check.get('material_id'),check['slot_id']))
+            if not disposition or disposition['action'] == 'pending_placeholder':
+                raise ReviewError('检查结案须先完成对应槽位的正文处置，补充来源不等于已更新正文')
+            if disposition['action'] == 'retain_static' and check.get('type') != 'template_content_review':
+                raise ReviewError('静态标签处置不能结案产品内容检查')
         required_field=check.get('required_evidence_field') or check.get('field_id')
+        if atomic_mode and check.get('slot_id'):
+            ids=r.get('requirement_ids',[])
+            candidates=[requirement_state['records'].get(rid) for rid in ids]
+            if (not ids or any(not req or (req['material_id'],req['slot_id'])!=(check['material_id'],check['slot_id'])
+                              or req.get('reviewed') is not True or req['status'] not in {'verified','not_applicable'} for req in candidates)):
+                raise ReviewError('检查结案须关联同槽位已核实或有依据不适用的原子需求')
+            relevant=[req for req in candidates if not required_field or req['field_id']==required_field]
+            if check.get('type')=='missing_evidence' and not check.get('required_evidence_field'):
+                # A generic field seed may be refined after rereading the
+                # template. Only that check's original, same-slot candidates
+                # can authorize this narrow remapping, never an arbitrary field.
+                bound=set(check.get('candidate_ids',[]))
+                for req in candidates:
+                    seed=requirement_state['candidates'].get(req.get('candidate_id'))
+                    if (seed and seed['candidate_id'] in bound and seed.get('field_id')==check.get('field_id')
+                            and (seed['material_id'],seed['slot_id'])==(check['material_id'],check['slot_id'])
+                            and isinstance(req.get('field_mapping_reason'),str) and req['field_mapping_reason'].strip()
+                            and req not in relevant):
+                        relevant.append(req)
+            if not relevant:raise ReviewError('结案需求字段未覆盖该检查项')
+            allowed={(e['type'],e['id']) for req in relevant for e in req['evidence']}
+            if not r.get('evidence') or not {(e['type'],e['id']) for e in r['evidence']}.issubset(allowed):
+                raise ReviewError('结案依据须来自所关联的原子需求')
+            # Applicability is assessed first. Contract-backed inapplicability
+            # never forces a fictional current date or a user-supplied source.
+            if all(req['status']=='not_applicable' for req in relevant):
+                resolved.add(cid);continue
+            if check.get('needs_external_evidence'):
+                # A complete source-bound recheck may itself supply this value.
+                # verified status records explicit applicability/source review.
+                for req in relevant:
+                    if req['rendered_text'] not in disposition['final_text']:
+                        raise ReviewError('结案原子需求尚未写入最终正文')
+            resolved.add(cid);continue
         evidence_check(r.get('evidence'), required_field)
         matches=[]
         for e in r['evidence']:
@@ -175,19 +377,45 @@ def validate_review(task, review):
             raise ReviewError('该检查须补充对应字段的本次有效依据，合同一般规则及旧物料不能单独结案')
         if required_field and not matches:
             raise ReviewError('结案依据须对应检查所缺字段')
+        if template_mode and check.get('slot_id') and check.get('needs_external_evidence'):
+            final = disposition['final_text']
+            actual_evidence = {(e['type'],e['id']) for e in disposition['evidence']}
+            selected = [supplement_map[e['id']] for e in r['evidence'] if e['type']=='supplement'
+                        and (not required_field or supplement_map[e['id']]['field_id']==required_field)]
+            if not any(('supplement', s['supplement_id']) in actual_evidence for s in selected):
+                raise ReviewError('外部信息结案依据必须同时用于最终正文处置')
+            if not any(_number_tokens(str(s['value'])).issubset(_number_tokens(final)) for s in selected):
+                raise ReviewError('外部信息的新数值尚未出现在最终正文')
         resolved.add(cid)
-    return {'operations': operations, 'supplements': supplements, 'resolved_checks': sorted(resolved)}
+    return {'operations': operations, 'supplements': supplements, 'resolved_checks': sorted(resolved),
+            'template_coverage':coverage,'requirement_coverage':requirement_coverage,'contract_rechecks':rechecks}
 
 
-def analyze(contract_path, material_paths, *, product=None, as_of=None, project_dir=None):
+def analyze(contract_path, material_paths, *, product=None, as_of=None, project_dir=None,
+            material_mode='template', template_map=None):
     from contract_facts import build_contract_facts
     from material_regions import analyze_material
     from case_checks import inspect_cases
     contract_path = Path(contract_path).resolve()
+    if material_mode not in {'template','review'}: raise ReviewError('物料模式须为template或review')
     if not material_paths: raise ReviewError('合同之外至少需要一份PPT、一页通或海报')
     paths = [Path(p).resolve() for p in material_paths]
     if len(set(paths)) != len(paths) or contract_path in paths:
         raise ReviewError('输入文件重复，或把合同作为目标物料')
+    if isinstance(template_map, (str, Path)): template_map = read_json(template_map)
+    template_map = template_map if template_map is not None else {'templates':[]}
+    if (not isinstance(template_map, dict) or not isinstance(template_map.get('templates'), list)
+            or (material_mode != 'template' and template_map['templates'])):
+        raise ReviewError('template_map须为模板模式下的templates数组')
+    selections = {}
+    for item in template_map['templates']:
+        if not isinstance(item, dict) or not isinstance(item.get('path'), str):
+            raise ReviewError('模板选择须有本次输入路径')
+        path = Path(item['path']).resolve()
+        if path not in paths or path in selections: raise ReviewError('模板选择路径不属于本次上传输入或重复')
+        if not isinstance(item.get('product_name'), str) or not item['product_name'].strip() or not item.get('reason'):
+            raise ReviewError('模板选择须有产品主体名称及范围选择理由')
+        selections[path] = item
     contract = build_contract_facts(contract_path, project_dir=project_dir or PROJECT)
     identity = contract['product']
     if not _product_name(identity) or identity.get('status') != 'identified_from_contract':
@@ -195,7 +423,6 @@ def analyze(contract_path, material_paths, *, product=None, as_of=None, project_
     if product:
         # A supplied identity disambiguates the contract; never silently changes it.
         known = [_product_name(identity)] + identity.get('aliases', [])
-        import re
         norm = lambda s: re.sub(r'[\s·•\-—（）()【】]', '', s)
         if _product_name(identity) and norm(product) not in {norm(x) for x in known}:
             raise ReviewError('指定产品与合同识别结果不同，请核对合同身份')
@@ -203,20 +430,35 @@ def analyze(contract_path, material_paths, *, product=None, as_of=None, project_
     if not _product_name(identity): raise ReviewError('合同未能确定产品名称，需核实身份后再继续')
     fields = dictionary()
     materials = []
+    bound_templates = []
     for path in paths:
-        m = analyze_material(path, identity, fields)
+        selection = selections.get(path)
+        template_product = {'name':selection['product_name'],'reason':selection['reason']} if selection else None
+        m = analyze_material(path, identity, fields, material_mode=material_mode, template_product=template_product)
         m['material_id'] = 'm-' + sha256(str(path).encode()).hexdigest()[:12]
+        if selection:
+            if selection.get('source_sha256') and selection['source_sha256'] != m['source']['sha256']:
+                raise ReviewError('模板选择来源哈希已变化，必须按本次实际文件重新选择')
+            bound_templates.append({'path':str(path),'product_name':selection['product_name'],
+                                    'reason':selection['reason'],'source_sha256':m['source']['sha256']})
         materials.append(m)
     as_of = as_of or datetime.now(timezone(timedelta(hours=8))).date().isoformat()
     datetime.strptime(as_of, '%Y-%m-%d')
     payload = {'version': CORE_VERSION, 'contract': contract['source']['sha256'],
                'materials': [(m['material_id'], m['source']['sha256']) for m in materials],
                'product': identity, 'as_of': as_of, 'dictionary': fields,
+               'material_mode':material_mode, 'template_map':{'templates':bound_templates},
                'engine_hashes': engine_hashes()}
     task_id = 'task-' + sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:20]
-    task = {'schema_version': 1, 'core_version': CORE_VERSION, 'task_id': task_id,
+    task = {'schema_version': 2, 'core_version': CORE_VERSION, 'task_id': task_id,
             'as_of': as_of, 'target_product': identity, 'contract': contract, 'materials': materials,
+            'material_mode':material_mode, 'template_map':payload['template_map'],
+            'field_dictionary':fields,
             'engine_hashes': payload['engine_hashes']}
+    if material_mode=='template':
+        from requirement_review import seed_requirements
+        task['requirement_schema_version']=1
+        task['requirement_candidates']=seed_requirements(task)
     task['checks'] = inspect_cases(task)
     task['summary'] = {'material_count': len(materials), 'fact_count': len(contract['facts']),
                        'check_count': len(task['checks']),
@@ -227,11 +469,15 @@ def analyze(contract_path, material_paths, *, product=None, as_of=None, project_
 
 
 def review_template(task):
-    return {'schema_version': 1, 'task_id': task['task_id'],
+    return {'schema_version': 2, 'task_id': task['task_id'],
             'source_hashes': {'contract': task['contract']['source']['sha256'],
                               **{m['material_id']: m['source']['sha256'] for m in task['materials']}},
-            'supplements': [], 'decisions': [], 'resolutions': [],
-            'instructions': '补充信息独立于合同事实；按slot_id局部审阅，不能修改other/ambiguous区域。日期只是个例之一。'}
+            'supplements': [], 'decisions': [], 'resolutions': [], 'slot_dispositions':[],
+            'new_fields':[], 'contract_rechecks':[], 'requirements':[],
+            'instructions': ('合同决定目标产品内容，其余文件只提供模板格式。逐一填写交付范围内slot_dispositions；'
+                             '未处置或待补槽位不能全部完成。模板名称不同不是错误，但other/ambiguous区域仍不属于所选模板。'
+                             if is_template_task(task) else
+                             '补充信息独立于合同事实；按slot_id局部审阅，不能修改other/ambiguous区域。日期只是个例之一。')}
 
 
 def save_analysis(task, output_dir):
@@ -270,10 +516,12 @@ def apply_task(task, review, output_dir):
         target=destinations[mid]
         pending = [c for c in task['checks'] if c.get('material_id') in (None, mid)
                    and c['check_id'] not in checked['resolved_checks'] and c.get('severity') != 'info']
+        coverage = checked['template_coverage'].get(mid, {})
+        pending_content = coverage.get('unreviewed_slot_ids',[]) + coverage.get('pending_slot_ids',[])
         if operations:
             try:
                 result = apply_patch_plan(source, target, operations, m['source']['sha256'])
-                status = 'updated_with_pending_checks' if pending else 'updated_pending_visual_qa'
+                status = 'updated_with_pending_checks' if pending or pending_content else 'updated_pending_visual_qa'
             except (ValueError, NotImplementedError) as exc:
                 # Preserve the original byte-for-byte in the review package; other
                 # materials can still finish, with failure prominently retained.
@@ -284,19 +532,24 @@ def apply_task(task, review, output_dir):
         else:
             shutil.copy2(source, target)
             result = {'passed': True, 'changed_parts': [], 'operation_results': []}
-            status = 'pending_review_source_copy' if pending else 'unchanged_source_copy'
+            status = 'pending_review_source_copy' if pending or pending_content else 'unchanged_source_copy'
         results.append({'material_id': mid, 'source': str(source), 'output': str(target),
                         'status': status, 'pending_check_ids': [c['check_id'] for c in pending],
+                        'pending_content_slot_ids':pending_content,
                         'operation_count': len(operations), 'verification': result,
                         'visual_status': 'not_checked', 'output_sha256': file_hash(target)})
     result = {'schema_version': 1, 'task_id': task['task_id'], 'results': results, 'applied_review': review,
               'supplements': checked['supplements'], 'resolved_checks': checked['resolved_checks'],
+              'template_coverage':checked['template_coverage'],
+              'requirement_coverage':checked['requirement_coverage'],'contract_rechecks':checked['contract_rechecks'],
               'source_hashes_unchanged': all(source_version_matches(s) for s in
                                            [task['contract']['source']] + [m['source'] for m in task['materials']]),
               'all_updates_complete': False,
               'note': '结构验证不代替原生打开和视觉验收；含待核项的文件不会标记全部完成。'}
     write_json(out / 'update_result.json', result)
     write_json(out / 'review.applied.json', review)
+    from task_report import write_review_reports
+    write_review_reports(task,review,checked,out)
     return result
 
 
@@ -310,6 +563,8 @@ def main():
     a.add_argument('--product')
     a.add_argument('--as-of')
     a.add_argument('--project-dir')
+    a.add_argument('--material-mode', choices=['template','review'], default='template')
+    a.add_argument('--template-map', help='本次上传模板范围选择JSON路径')
     b = sub.add_parser('apply')
     b.add_argument('--task', required=True)
     b.add_argument('--review', required=True)
@@ -324,7 +579,8 @@ def main():
     d.add_argument('--out',required=True)
     args = parser.parse_args()
     if args.command == 'analyze':
-        task = analyze(args.contract, args.material, product=args.product, as_of=args.as_of, project_dir=args.project_dir)
+        task = analyze(args.contract, args.material, product=args.product, as_of=args.as_of, project_dir=args.project_dir,
+                       material_mode=args.material_mode, template_map=args.template_map)
         print(json.dumps({'task': str(save_analysis(task, args.out)), **task['summary']}, ensure_ascii=False))
     elif args.command == 'apply':
         result = apply_task(read_json(args.task), read_json(args.review), args.out)

@@ -14,7 +14,8 @@ def doctor():
     required=['field_dictionary.json','contract_field_extensions.json','qdii25_profile.json']
     configs={name:(PROJECT/'config'/name).is_file() for name in required}
     modules={name:(PROJECT/'src'/(name+'.py')).is_file() for name in ('material_cli','material_task','contract_facts',
-             'material_regions','material_writer','case_checks','corpus','qdii_pipeline','task_report','task_validation','ppt_delivery')}
+             'material_regions','material_writer','case_checks','corpus','qdii_pipeline','task_report','task_validation','ppt_delivery',
+             'contract_recheck','requirement_review')}
     return {'ok':sys.version_info >= (3,11) and all(dependencies.values()) and all(configs.values()) and all(modules.values()),
             'python':sys.version.split()[0],'executable':sys.executable,'runtime':str(PROJECT),
             'dependencies':dependencies,'configurations':configs,'modules':modules,
@@ -46,6 +47,30 @@ def register_conversion(source,converted,cache_dir):
     return {'index':str(index),'entry':entry,'analyze_option':'--project-dir '+str(cache_dir)}
 
 
+def _require_fresh_task(task):
+    from material_task import engine_hashes,source_version_matches
+    if task.get('engine_hashes')!=engine_hashes():
+        raise ReviewError('分析引擎版本变化，请重新分析后回查或核对')
+    for source in [task['contract']['source'],*[m['source'] for m in task['materials']]]:
+        if not source_version_matches(source):
+            raise ReviewError('来源或转换副本变化，请重新分析')
+
+
+def inspect_review(task,review):
+    from material_task import validate_review
+    _require_fresh_task(task)
+    checked=validate_review(task,review)
+    pending=[c for c in task.get('checks',[]) if c.get('severity')!='info'
+             and c['check_id'] not in checked['resolved_checks']]
+    coverage=checked.get('template_coverage',{})
+    incomplete=any(c['unreviewed_slot_ids'] or c['pending_slot_ids'] for c in coverage.values())
+    return {'valid':True,'task_id':task['task_id'],'semantic_review_complete':not pending and not incomplete,
+            'pending_checks':pending,'template_coverage':coverage,
+            'requirement_coverage':checked.get('requirement_coverage',{}),
+            'contract_rechecks':checked.get('contract_rechecks',{}),
+            'scope':'仅审阅记录及依据检查；semantic_review_complete不表示文件已生成或已通过原生和视觉验收。'}
+
+
 def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
     from task_validation import validate_task_outputs
     from ppt_delivery import suggest_element_pages,export_selected_slides
@@ -67,6 +92,21 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
             raise ReviewError(f'第{page}页含尚未确认的产品身份，不能通过手工页码绕过')
         if any((s.get('location',{}).get('page') or s.get('page'))==page and s.get('field_id') and s.get('product_status')=='ambiguous' for s in material['slots']):
             raise ReviewError(f'第{page}页含身份待核要素，不能通过手工页码绕过')
+    content_status='reviewed_output'
+    pending_slots=[]
+    if task.get('material_mode')=='template':
+        from material_task import validate_review
+        if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
+            raise ReviewError('模板交付仅允许产品要素页，不能手工加入封面或市场页')
+        checked=validate_review(task,result['applied_review'])
+        coverage=checked['template_coverage'][material_id]
+        selected_slots={s['slot_id'] for s in material['slots']
+                        if (s.get('location',{}).get('page') or s.get('page')) in pages}
+        unreviewed=set(coverage['unreviewed_slot_ids']) & selected_slots
+        if unreviewed:
+            raise ReviewError('模板内容存在未处置或未审阅槽位，禁止交付：'+', '.join(sorted(unreviewed)))
+        pending_slots=sorted(set(coverage['pending_slot_ids']) & selected_slots)
+        content_status='pending_draft' if pending_slots else 'content_reviewed'
     output=Path(output).resolve()
     if output.suffix.lower()!='.pptx':raise ReviewError('交付文件扩展名必须为.pptx')
     manifest=output.with_suffix('.delivery.json')
@@ -85,10 +125,13 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
                     source_material=material['source']['path'],source_material_sha256=material['source']['sha256'],
                     selection=suggestion,review_reason=review_reason,
                     included_decisions=included,excluded_decisions=excluded,visual_status='not_checked',
+                    material_mode=task.get('material_mode','review'),content_status=content_status,
+                    pending_slot_ids=pending_slots,template_source_product=material.get('template_source_product'),
                     note='只交付所选产品要素页；完整稿中的其他页及其修改不在本交付中，待核信息不因此自动结案。')
     write_json(manifest,exported)
     return {'output':str(output),'manifest':str(manifest),'pages':pages,'valid':True,
-            'included_decisions':included,'excluded_decisions':excluded,'visual_status':'not_checked'}
+            'included_decisions':included,'excluded_decisions':excluded,'visual_status':'not_checked',
+            'content_status':content_status,'pending_slot_ids':pending_slots}
 
 
 def main():
@@ -99,9 +142,18 @@ def main():
                 raise ReviewError('旧DOC需先转换成DOCX；可直接分析DOCX，或register-conversion登记后用--project-dir指定缓存。')
         from material_task import main as core_main
         return core_main()
-    parser=argparse.ArgumentParser(description='产品物料审阅CLI：analyze / apply / validate / accept / deliver-ppt / doctor / register-conversion')
+    parser=argparse.ArgumentParser(description='产品物料审阅CLI：analyze / search-contract / inspect-review / apply / validate / accept / deliver-ppt / doctor / register-conversion')
     sub=parser.add_subparsers(dest='command',required=True)
     sub.add_parser('doctor')
+    search=sub.add_parser('search-contract',help='回查本任务合同原文和上下文，结果仍须语义核实')
+    search.add_argument('--task',required=True)
+    search.add_argument('--query',action='append',required=True)
+    search.add_argument('--limit',type=int,default=20)
+    search.add_argument('--out')
+    inspect=sub.add_parser('inspect-review',help='检查需求、合同补提及最终内容记录，不修改物料')
+    inspect.add_argument('--task',required=True)
+    inspect.add_argument('--review',required=True)
+    inspect.add_argument('--out')
     d=sub.add_parser('deliver-ppt')
     for name in ('task','result','material-id','out'):d.add_argument('--'+name,required=True)
     d.add_argument('--pages',help='核实后的原PPT页码，例如22,23；不填则保守识别')
@@ -113,6 +165,34 @@ def main():
         value=doctor();print(json.dumps(value,ensure_ascii=False,indent=2))
         if not value['ok']:raise SystemExit(1)
     elif args.command=='register-conversion':print(json.dumps(register_conversion(args.source,args.converted,args.cache_dir),ensure_ascii=False,indent=2))
+    elif args.command in {'search-contract','inspect-review'}:
+        task=read_json(args.task)
+        _require_fresh_task(task)
+        if args.command=='search-contract':
+            from contract_recheck import search_contract
+            value=search_contract(task,args.query,limit=args.limit)
+        else:value=inspect_review(task,read_json(args.review))
+        if args.out:
+            destination=Path(args.out).resolve()
+            sources=[task['contract']['source'],*[m['source'] for m in task['materials']]]
+            protected=[Path(args.task).resolve(),*[Path(source[key]).resolve()
+                       for source in sources for key in ('path','converted_path') if source.get(key)]]
+            if args.command=='inspect-review':protected.append(Path(args.review).resolve())
+            if destination in protected:raise ReviewError('报告输出不能覆盖任务、审阅记录或输入文件')
+            write_json(destination,value)
+            if args.command=='search-contract':
+                value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
+                       'source_status':value.get('source_status'),'status':value.get('status'),
+                       'hit_count':value.get('total_match_count'),'returned_count':len(value.get('matches',[])),
+                       'truncated':value.get('truncated'),'absence_proven':False}
+            else:
+                value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
+                       'valid':value['valid'],'semantic_review_complete':value['semantic_review_complete'],
+                       'pending_check_count':len(value['pending_checks']),
+                       'pending_content_slot_count':sum(len(set(c['pending_slot_ids'])|set(c['unreviewed_slot_ids']))
+                                                       for c in value['template_coverage'].values()),
+                       'scope':value['scope']}
+        print(json.dumps(value,ensure_ascii=False,indent=2))
     else:
         pages=[int(x.strip()) for x in args.pages.split(',')] if args.pages else None
         value=deliver_ppt(read_json(args.task),read_json(args.result),args.material_id,args.out,pages,args.review_reason)

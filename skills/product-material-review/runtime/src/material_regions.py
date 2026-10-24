@@ -7,7 +7,7 @@ identities and conflicting/combined identities fail closed for editing.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -206,8 +206,9 @@ def _bounds(shape):
 
 
 class _Analyzer:
-    def __init__(self, target, labels):
+    def __init__(self, target, labels, keep_empty=False):
         self.target, self.labels = target, labels
+        self.keep_empty = keep_empty
         self.regions, self.slots, self.issues = [], [], []
         self.seen_slots = set()
 
@@ -235,8 +236,12 @@ class _Analyzer:
 
     def slot(self, paragraph, region, label, field, location, shared=False, field_context=None, content_role="value"):
         text = _text(paragraph)
-        if not text.strip() or not _visible(paragraph):
+        if (not text.strip() and not self.keep_empty) or not _visible(paragraph):
             return
+        if not text.strip() and content_role != "layout_blank":
+            content_role = "empty_value"
+        if content_role == "layout_blank":
+            field = None
         path = _xpath(paragraph)
         key = (location["part"], path)
         if key in self.seen_slots:
@@ -246,11 +251,16 @@ class _Analyzer:
         loc = {**location, "xpath": path}
         self.slots.append({"slot_id": f"slot_{len(self.slots) + 1:05d}", "region_id": region["region_id"],
                            "field_id": field, "label": label, "text": text, "part": loc["part"],
-                           "xpath": path, "editable": status == "target", "product_status": status,
+                           "xpath": path, "editable": status == "target" and bool(text.strip()), "product_status": status,
                            "location": loc, "title": region["title"],
                            "inherited_context": [*region["inherited_context"], *(field_context or [])],
                            "content_role": content_role,
+                           "shared_scope": shared,
                            "identity_evidence": region["product_names"]})
+        if content_role == "empty_value":
+            self.issues.append({"code": "empty_template_value", "region_id": region["region_id"],
+                                "slot_id": self.slots[-1]["slot_id"], "location": loc,
+                                "message": "模板存在空白值格，须补充目标合同内容；当前文本替换器不能直接填入空段落。"})
 
     def local_title(self, obj, titles):
         candidates = []
@@ -285,13 +295,23 @@ class _Analyzer:
             for ci, cell in enumerate(row.findall(f"{pre}:tc", NS), 1):
                 span_node = cell.find("w:tcPr/w:gridSpan", NS) if word else None
                 span = int(span_node.get(_q("w", "val"), "1")) if span_node is not None else int(cell.get("gridSpan", "1"))
-                paras = [p for p in cell.findall(f".//{pre}:p", NS) if _visible(p) and _text(p).strip()]
+                visible_paras = [p for p in cell.findall(f".//{pre}:p", NS) if _visible(p)]
+                paras = [p for p in visible_paras if _text(p).strip()]
+                if self.keep_empty and not paras:
+                    paras = visible_paras[:1]
                 merge_node = cell.find("w:tcPr/w:vMerge", NS) if word else None
                 merged = cell.get("hMerge") == "1" or cell.get("vMerge") == "1" or (merge_node is not None and merge_node.get(_q("w", "val")) != "restart")
                 if _visible(cell) and not merged:
                     text = "\n".join(_text(p) for p in paras)
+                    open_edges = []
+                    if word and not text.strip():
+                        for edge in ("top", "bottom", "right"):
+                            border = cell.find(f"w:tcPr/w:tcBorders/w:{edge}", NS)
+                            if border is not None and border.get(_q("w", "val")) in {"nil", "none"}:
+                                open_edges.append(edge)
                     cells.append({"text": text, "paragraphs": paras, "column": ci,
                                   "grid_column": grid_col, "span": span, "field": self.field(text),
+                                  "open_edges": open_edges,
                                   "location": {**location, "row": ri, "column": ci, "grid_column": grid_col,
                                                "column_span": span, "xpath": _xpath(cell)}})
                 grid_col += span if word else 1
@@ -390,15 +410,22 @@ class _Analyzer:
                             left = [(c, r) for c, r in region_columns if c <= cell["grid_column"]]
                             owner = left[-1][1] if left else regions[0]
                             shared = len(columns) > 1 or not left
-                    self.paragraphs(cell["paragraphs"], owner, cell["location"], shared,
-                                    label_cell["text"], label_cell["field"], label_cell["location"])
+                    location, blank_role = cell["location"], "value"
+                    filled_peers = [c for c in cells[label_index + 1:stop] if c is not cell and c["text"].strip()]
+                    if self.keep_empty and not cell["text"].strip() and cell["open_edges"] == ["top", "bottom", "right"] and filled_peers and len(regions) == 1:
+                        blank_role = "layout_blank"
+                        location = {**location, "layout_blank_evidence": {
+                            "method": "open_outer_edges_beside_populated_value",
+                            "open_edges": cell["open_edges"], "filled_peer_locations": [c["location"] for c in filled_peers]}}
+                    self.paragraphs(cell["paragraphs"], owner, location, shared,
+                                    label_cell["text"], label_cell["field"], label_cell["location"], blank_role)
 
-    def paragraphs(self, paragraphs, region, location, shared=False, default_label="", default_field=None, label_location=None):
+    def paragraphs(self, paragraphs, region, location, shared=False, default_label="", default_field=None, label_location=None, default_role="value"):
         state = {"label": default_label, "field": default_field, "location": label_location}
         for paragraph in paragraphs:
             text = _text(paragraph)
             match = re.match(r"^\s*([^：:\n]{1,50})\s*[：:]", text)
-            role = "value"
+            role = default_role
             own_field = self.field(match.group(1)) if match else None
             if match and own_field:
                 state = {"label": match.group(1), "field": own_field,
@@ -512,7 +539,7 @@ def _analyze_pptx(package, analyzer):
                 amended.add(region["region_id"])
         for slot in analyzer.slots:
             if slot["region_id"] in amended:
-                slot.update(product_status="target", editable=True, identity_evidence=[analyzer.target["name"]])
+                slot.update(product_status="target", editable=bool(slot["text"].strip()), identity_evidence=[analyzer.target["name"]])
                 slot["inherited_context"] = [*evidence, *slot["inherited_context"]]
         analyzer.issues = [i for i in analyzer.issues if i.get("region_id") not in amended]
 
@@ -588,7 +615,190 @@ def _analyze_docx(package, analyzer):
                 analyzer.paragraph(node, context, location)
 
 
-def analyze_material(path, target_product, dictionary=None):
+def _run_analysis(path, target, labels, keep_empty=False):
+    analyzer = _Analyzer(target, labels, keep_empty)
+    with ZipFile(path) as package:
+        if path.suffix.lower() == ".pptx":
+            _analyze_pptx(package, analyzer)
+        else:
+            _analyze_docx(package, analyzer)
+    return analyzer
+
+
+def _template_candidates(analyzer, is_ppt):
+    """Find source subjects without comparing any name to the destination."""
+    slots = defaultdict(list)
+    for slot in analyzer.slots:
+        slots[slot["region_id"]].append(slot)
+    candidates = {}
+    for region in analyzer.regions:
+        names = region["product_names"]
+        fields = {s["field_id"] for s in slots[region["region_id"]] if s["field_id"]}
+        if len(names) != 1 or region["status"] == "ambiguous" or not fields - {"product_name"}:
+            continue
+        location = region["locations"][0]
+        if not is_ppt and location["part"] != "word/document.xml":
+            continue
+        name = re.sub(r"\s+", "", names[0])
+        key = _normalize(name)
+        candidate = candidates.setdefault(key, {"name": name, "aliases": [], "region_ids": [], "locations": []})
+        candidate["region_ids"].append(region["region_id"])
+        candidate["locations"].append(location)
+    merged = []
+    for candidate in sorted(candidates.values(), key=lambda c: -len(c["name"])):
+        same = next((prior for prior in merged if _same_source_name(candidate["name"], prior)), None)
+        if same is None:
+            merged.append(candidate)
+        else:
+            same["aliases"].append(candidate["name"])
+            same["region_ids"].extend(candidate["region_ids"])
+            same["locations"].extend(candidate["locations"])
+    # A first-slide subject must be outside its tables. A first-page table by
+    # itself is not cover evidence and cannot defeat another product table.
+    covers = []
+    for region in analyzer.regions:
+        location = region["locations"][0]
+        fields = {s["field_id"] for s in slots[region["region_id"]] if s["field_id"]}
+        cover = (location.get("page") == 1 and not location.get("table")) if is_ppt else (
+            location["part"] == "word/document.xml" and location.get("paragraph") == 1)
+        if cover and len(region["product_names"]) == 1 and region["status"] != "ambiguous" and not fields - {"product_name"}:
+            name = re.sub(r"\s+", "", region["product_names"][0])
+            if name not in covers:
+                covers.append(name)
+    return merged, covers, slots
+
+
+def _same_source_name(name, candidate):
+    # Only exact complete names and mechanically shortened legal suffixes count.
+    # User aliases cannot make distinct product issues equivalent.
+    return _compare_name(name, {"name": candidate["name"], "aliases": []}) == "target"
+
+
+def _choose_template(analyzer, is_ppt, requested):
+    candidates, covers, slots = _template_candidates(analyzer, is_ppt)
+    selection = {"status": "needs_selection", "method": "unresolved_template_scope",
+                 "candidates": candidates, "cover_names": covers, "selected_region_ids": [],
+                 "reason": "模板主体范围尚未确定；选择要使用的模板主体，与合同产品名称是否相同无关。"}
+    chosen = None
+    if requested is not None:
+        if isinstance(requested, str):
+            request = {"name": requested, "reason": "explicit_template_product_argument"}
+        elif isinstance(requested, dict):
+            request = dict(requested)
+            if not isinstance(request.get("reason"), str) or not request["reason"].strip():
+                raise ValueError("template_product mapping requires a non-empty selection reason")
+        else:
+            raise ValueError("template_product must be a name or a mapping with name and reason")
+        name = request.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("template_product requires a non-empty source name")
+        matches = [candidate for candidate in candidates if _normalize(name) in
+                   {_normalize(value) for value in [candidate["name"], *candidate["aliases"]]}]
+        if len(matches) != 1:
+            raise ValueError("template_product must select one observed template body subject")
+        chosen = dict(matches[0])
+        aliases = request.get("aliases", []) or []
+        if isinstance(aliases, str):
+            aliases = [aliases]
+        observed = {n for r in analyzer.regions for n in r["product_names"]}
+        if not isinstance(aliases, list) or any(not isinstance(a, str) or not _same_source_name(a, chosen)
+                                               or not any(_normalize(a) == _normalize(n) for n in observed) for a in aliases):
+            raise ValueError("template aliases must be observed names of the same selected source subject")
+        chosen["aliases"] = list(dict.fromkeys([*chosen["aliases"], *aliases]))
+        selection.update(status="selected", method="explicit_observed_template_subject", reason=request["reason"])
+    else:
+        cover_matches = [candidate for candidate in candidates if any(_same_source_name(name, candidate) for name in covers)]
+        if len(cover_matches) == 1 and len(covers) == 1:
+            chosen = cover_matches[0]
+            selection.update(status="selected", method="cover_and_body_template_subject", reason="模板封面主体与正文要素共同确定使用范围。")
+        elif len(candidates) == 1 and not covers:
+            chosen = candidates[0]
+            selection.update(status="selected", method="unique_body_template_subject", reason="模板只有一个有正文要素支持的主体。")
+        elif not candidates and not any(r["product_names"] for r in analyzer.regions):
+            # A genuinely unnamed single group is useful as a blank template;
+            # multiple anonymous tables remain separate selectable scopes.
+            groups = [r for r in analyzer.regions if any(s["field_id"] for s in slots[r["region_id"]])]
+            if len(groups) == 1 and groups[0]["reason"] in {"no_local_product_identity", "unscoped_slide_text"}:
+                selection.update(status="selected", method="unique_unnamed_field_group",
+                                 reason="模板不含产品身份，唯一字段组作为换填范围。",
+                                 selected_region_ids=[groups[0]["region_id"]])
+                return {"name": None, "aliases": [], "status": "unnamed_template"}, selection
+    if chosen:
+        return {"name": chosen["name"], "aliases": chosen.get("aliases", []), "status": "identified_from_template"}, selection
+    return None, selection
+
+
+def _bind_template_context(analyzer, region_ids, reason, source):
+    """Bind only evidenced local context; never relabel every other region."""
+    for region in analyzer.regions:
+        if region["region_id"] in region_ids:
+            region.update(status="target", reason=reason)
+            region["inherited_context"].append({"method": reason, "template_product": source})
+    for slot in analyzer.slots:
+        if slot["region_id"] in region_ids and not slot.get("shared_scope"):
+            slot.update(product_status="target", editable=bool(slot["text"].strip()))
+            slot["inherited_context"].append({"method": reason, "template_product": source})
+    analyzer.issues = [issue for issue in analyzer.issues
+                       if not (issue.get("code") == "ambiguous_product_region" and issue.get("region_id") in region_ids)]
+
+
+def _template_context(analyzer, is_ppt, source, selection):
+    if selection["status"] != "selected":
+        return
+    if selection["method"] == "unique_unnamed_field_group":
+        _bind_template_context(analyzer, set(selection["selected_region_ids"]), selection["method"], source)
+    regions = analyzer.regions
+    generic_reasons = {"unscoped_slide_text", "no_local_product_identity"}
+    selected = [r for r in regions if r["status"] == "target"]
+    bindings = set()
+    if is_ppt:
+        pages = {loc.get("page") for r in selected for loc in r["locations"]}
+        for page in pages:
+            local = [r for r in regions if any(loc.get("page") == page for loc in r["locations"])]
+            if any(r["product_names"] and r["status"] != "target" for r in local):
+                continue
+            bindings.update(r["region_id"] for r in local if r["status"] == "ambiguous"
+                            and not r["product_names"] and r["reason"] in generic_reasons)
+        reason = "selected_template_page_context"
+    else:
+        # A one-subject document's generic headings/header/footer belong to the
+        # format too. Explicit competing names or shared regions still fence it.
+        if not any(r["product_names"] and r["status"] != "target" for r in regions):
+            bindings.update(r["region_id"] for r in regions if r["status"] == "ambiguous"
+                            and not r["product_names"] and r["reason"] in generic_reasons)
+        reason = "selected_template_document_context"
+    _bind_template_context(analyzer, bindings, reason, source)
+    selection["selected_region_ids"] = [r["region_id"] for r in regions if r["status"] == "target"]
+
+
+def _delivery_scope(result, is_ppt):
+    pages = set()
+    if is_ppt:
+        # Also works for direct importlib loaders used by integrations/tests.
+        try:
+            from ppt_delivery import suggest_element_pages
+        except ModuleNotFoundError:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("_material_ppt_delivery", Path(__file__).with_name("ppt_delivery.py"))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            suggest_element_pages = module.suggest_element_pages
+        suggestion = suggest_element_pages(result)
+        result["template_selection"]["element_pages"] = suggestion
+        pages = set(suggestion["pages"] + suggestion["review_pages"])
+    for slot in result["slots"]:
+        slot["delivery_required"] = slot["product_status"] == "target" and slot.get("content_role") != "layout_blank" and (
+            not is_ppt or slot["location"].get("page") in pages)
+    if not is_ppt and result["template_selection"]["status"] == "selected":
+        excluded = [s for s in result["slots"] if s["product_status"] != "target" and s["text"].strip()]
+        if excluded:
+            result["issues"].append({"code": "template_unselected_document_content",
+                "message": "Word整份交付仍含未选定区域内容；须确认换填或移除范围，不能将旧产品文字静默保留。",
+                "related_region_ids": list(dict.fromkeys(s["region_id"] for s in excluded)),
+                "related_slot_ids": [s["slot_id"] for s in excluded]})
+
+
+def analyze_material(path, target_product, dictionary=None, *, material_mode="review", template_product=None):
     """Return product regions and paragraph slots from a DOCX or PPTX file.
 
     ``target_product`` is a full product name or ``{"name": ..., "aliases": [...]}``.
@@ -597,6 +807,10 @@ def analyze_material(path, target_product, dictionary=None):
     this exact input, and ``editable`` is true only for confidently target slots.
     ``dictionary`` may be a list, or a mapping with ``fields``/``field_dictionary``.
     Unclassified material labels remain slots with ``field_id=None``.
+
+    ``template`` mode selects the source template's subject independently, then
+    uses target/other as editing scope. Destination identity always remains the
+    contract's. An explicit source selection cannot invent a new source subject.
     """
     path = Path(path).resolve()
     target = {"name": target_product, "aliases": []} if isinstance(target_product, str) else dict(target_product)
@@ -605,22 +819,34 @@ def analyze_material(path, target_product, dictionary=None):
     target["aliases"] = target.get("aliases", []) or []
     if isinstance(target["aliases"], str):
         target["aliases"] = [target["aliases"]]
-    analyzer = _Analyzer(target, _load_dictionary(dictionary))
+    if material_mode not in {"review", "template"}:
+        raise ValueError("material_mode must be review or template")
+    if material_mode == "review" and template_product is not None:
+        raise ValueError("template_product is only valid in template mode")
     blob = path.read_bytes()
     if path.suffix.lower() not in {".docx", ".pptx"}:
         raise ValueError("Material region analysis supports DOCX and PPTX source packages only")
-    with ZipFile(path) as package:
-        if path.suffix.lower() == ".pptx":
-            _analyze_pptx(package, analyzer)
-        else:
-            _analyze_docx(package, analyzer)
+    labels = _load_dictionary(dictionary)
+    source, selection = None, None
+    if material_mode == "template":
+        analyzer = _run_analysis(path, {"name": "__template_scope_probe__", "aliases": []}, labels, True)
+        source, selection = _choose_template(analyzer, path.suffix.lower() == ".pptx", template_product)
+        if source and source["name"]:
+            analyzer = _run_analysis(path, source, labels, True)
+        _template_context(analyzer, path.suffix.lower() == ".pptx", source, selection)
+        if selection["status"] != "selected":
+            analyzer.issues.append({"code": "template_scope_selection_required", "message": selection["reason"]})
+    else:
+        analyzer = _run_analysis(path, target, labels)
     for region in analyzer.regions:
         slots = [s for s in analyzer.slots if s["region_id"] == region["region_id"]]
         region["identity_review_required"] = any(s["field_id"] is not None or re.search(r"xx|待补充|待核实|待填写", s["text"], re.I) for s in slots)
     required = {r["region_id"] for r in analyzer.regions if r["identity_review_required"]}
-    analyzer.issues = [i for i in analyzer.issues if i.get("region_id") in required]
+    analyzer.issues = [i for i in analyzer.issues if not i.get("region_id") or i.get("region_id") in required]
     counts = Counter(r["status"] for r in analyzer.regions)
-    return {"source": {"path": str(path), "sha256": sha256(blob).hexdigest()}, "target_product": target,
+    result = {"source": {"path": str(path), "sha256": sha256(blob).hexdigest()}, "target_product": target,
+            "material_mode": material_mode, "template_source_product": source,
+            "destination_product": target, "template_selection": selection,
             "regions": analyzer.regions, "slots": analyzer.slots, "issues": analyzer.issues,
             "summary": {"regions": len(analyzer.regions), "slots": len(analyzer.slots),
                         "target_regions": counts["target"], "other_regions": counts["other"],
@@ -629,3 +855,7 @@ def analyze_material(path, target_product, dictionary=None):
                         "unclassified_slots": sum(s["field_id"] is None for s in analyzer.slots),
                         "identity_policy": "local_evidence_only_no_filename_or_cover_propagation",
                         "revision_policy": "accepted_text_source_xpath_preserved"}}
+    if material_mode == "template":
+        result["summary"]["identity_policy"] = "template_subject_scope_independent_of_contract_destination"
+        _delivery_scope(result, path.suffix.lower() == ".pptx")
+    return result
