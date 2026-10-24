@@ -1,15 +1,6 @@
 # 安装与开始使用
 
-## 从 GitHub 安装
-
-在目标电脑的 Codex 中发送：
-
-> 从 https://github.com/wtt982887807/product-material-skills 的 skills/product-material-review 目录安装这个 Skill，一并安装 requirements.txt 中的依赖，然后运行 scripts/material_agent.py doctor 验证。
-
-由安装助手调用 Skill Installer 下载整个技能目录；使用同一个 Python 3.11+ 解释器安装依赖和运行 doctor。无需传文件包或手写审阅 JSON。安装本身只下载技能文件，Python 依赖检查仍需完成；已有同名技能时先核对版本和用户自定义配置。
-
-
-本版为 Skill **1.2.4**，随包核心 **2.3.4**。
+本版为 Skill **1.2.5**，随包核心 **2.3.5**。
 
 需要目标电脑上可用的 Python 3.11 或更新版本。核心处理无需模型 API 密钥。Word 物料含历史修订时，还需要 Windows Microsoft Word 原生接受全部旧修订；无历史修订不需要 Office 完成准备。最终 Word/PowerPoint 原生打开和版面验收仍需相应应用或工具。
 
@@ -34,13 +25,13 @@ python -X utf8 scripts/material_agent.py doctor
 
 3. 在能读取该 Skill 的 Codex 会话中提供一份目标产品合同和至少一份 DOCX/PPTX 格式模板，使用例如：
 
-> 使用 $product-material-review，内容按这份合同，格式按其他上传模板制作。Word 先在副本中接受原有全部修订，再生成本次修订，保留原批注；一页通和海报沿用模板文件名，PPT 只输出模板自身要素页，文件名在模板原名后加“产品要素”。缺项列出并清理为待补占位。
+> 使用 $product-material-review，内容按这份合同，格式按其他上传模板制作。Word 先在副本中接受原有全部修订，再生成本次修订，保留原批注；所有文件名按合同更新产品名称并保留可靠的模板渠道、日期和类型信息；PPT 只输出模板主体全部要素页（含续页），并追加一次“产品要素”。缺项列出并清理为待补占位。
 
 AI 会建立合同候选底稿、选择模板主体、把模板要求拆为原子需求并回查合同，再逐项核对后调用脚本。新字段无需先加入公共字典；模板旧值不作为目标事实。用户只需补充回查后仍需要的外部信息，无需手写 JSON。默认采用 `template` 模式；只有审阅已有同产品物料时才显式选择 `review` 模式。
 
 程序不覆盖原件。Word 物料有历史修订时，`analyze` 自动在 `analysis/prepared_templates/<material_id>/原模板名` 建立副本，接受全部旧修订并保留原批注，绑定原件/副本双哈希，再从清洁基线制作；无历史修订时直接沿用原件基线。合同不处理修订。有历史修订但无可用 Word 时明确受阻，不声称已接受，也不直接沿用旧历史交付。
 
-完整审阅稿保存在输出目录的 `internal/`，用户文件自动生成在 `delivery/`，以 `delivery_manifest.json` 列出的实际文件为交付入口。Word 交付保留本次新修订；PPTX 格式的一页通或海报沿用模板文件名，PPT 选页受阻时不改交完整稿。最终文件仍须实际打开并检查版面，缺项或未验收不能算全部完成。
+完整审阅稿保存在输出目录的 `internal/`，用户文件自动生成在 `delivery/`，以 `delivery_manifest.json` 列出的实际文件为交付入口。Word 交付保留本次新修订；PPTX 格式的一页通或海报同样按合同更新文件名中的产品，不额外追加“产品要素”，PPT 选页受阻时不改交完整稿。最终文件仍须实际打开并检查版面，缺项或未验收不能算全部完成。
 
 CLI 可以从任意工作目录运行：在其他目录中调用实际安装位置的 `scripts/material_agent.py`，输入与输出路径使用本次实际路径。完整命令见 [CLI 参考](references/cli.md)。
 
