@@ -29,6 +29,9 @@ def write_review_reports(task,review,checked,out):
         [(fid,f['field_id'],f['value'],f['raw_text'],f['source_locations'],f['source_kind'],f['source_sha256'],f['reason'])
          for fid,f in checked.get('contract_rechecks',{}).items()])
     coverage=checked.get('requirement_coverage',{})
+    csv_table(out/'沿用模板例外.csv',['需求ID','物料ID','槽位ID','字段','沿用原文','批注决定','合同已核实','核对说明'],
+        [(rid,r['material_id'],r['slot_id'],r['field_id'],r['value'],r['comment_decision_id'],False,
+          r.get('contract_search',{}).get('conclusion')) for rid,r in checked.get('template_retentions',{}).items()])
     stats={'original_contract_candidates':len(task['contract']['facts']),
            'new_contract_recheck_facts':len(checked.get('contract_rechecks',{})),
            'requirement_review':coverage,'slot_review':checked['template_coverage'],
@@ -82,14 +85,14 @@ def write_reports(task,out):
     if template_mode:
         lines += ['','## 模板内容覆盖','',
                   '模板旧名称、产品码、费率、日期、管理人和历史业绩均不构成新产品事实。识别出的同名字段也必须逐槽审阅。',
-                  'slot_dispositions使用rewrite、retain_verified、pending_placeholder、not_applicable或retain_static；final_text须为所有决定执行后的完整槽位正文。',
-                  '缺项用kind=placeholder、整槽before与after=【待补充】清除旧值，并保留待补状态；不能仅补一条来源或加批注后把旧正文结案。',
+                  'slot_dispositions使用rewrite、retain_verified、retain_template_exception、pending_placeholder、not_applicable或retain_static；final_text须为所有决定执行后的完整槽位正文。',
+                  '指定例外：业绩报酬及代销机构销售评级回查合同未给出具体值时，原样保留并实际批注“合同未提，沿用模板”，标记template_retained，不能称合同已核实。其他缺项用kind=placeholder清除旧值，保留待补状态。',
                   '空白值槽和无法安全写入的对象仍须人工处理；源副本和未覆盖正文仅为内部审阅稿，不能标记完整成品。']
         if task.get('requirement_schema_version'):
             lines += ['','## 需求回查与核对','',
                 f"合同初始候选 {len(task['contract']['facts'])} 条；规则发现需求种子 {len(task.get('requirement_candidates',[]))} 条。此时已核实需求为0，不能将原文覆盖或种子数量当作语义完成率。",
                 'AI须逐槽读取完整模板并补充、拆分原子需求；已有字段字典不是需求白名单。种子仅提醒可能的费用、支付、日期和公告信息，不自动证明已发现所有含义。',
                 '先判断目标合同是否适用，再匹配已有底稿、回查完整合同及关联条款。新的合同摘录记录到contract_rechecks，并绑定原文块与精确引文；不得伪装成user_supplied。',
-                'requirements逐项记录verified、not_applicable、needs_external、unresolved、unreadable或conflict；slot_dispositions须列全requirement_ids并确认discovery_reviewed/discovery_reason。',
+                'requirements逐项记录verified、not_applicable、template_retained、needs_external、unresolved、unreadable或conflict；slot_dispositions须列全requirement_ids并确认discovery_reviewed/discovery_reason。',
                 '最终原子需求rendered_text必须出现在实际槽位正文。封闭合同可用合同依据将模板开放日期判不适用，无需虚构日期或强制用户补充。']
     (out/'审阅说明.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')

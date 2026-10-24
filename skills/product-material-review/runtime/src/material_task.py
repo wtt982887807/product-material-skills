@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import shutil
 
-CORE_VERSION = '2.3.2'
+CORE_VERSION = '2.3.3'
 PROJECT = Path(__file__).resolve().parents[1]
 PENDING_PLACEHOLDER = '【待补充】'
 STATIC_TITLES = {'产品要素','产品要素表','产品概要','产品基本信息','基本信息','产品信息',
@@ -51,7 +51,7 @@ def source_version_matches(source):
 def engine_hashes():
     modules=['contract_facts.py','contract_recheck.py','requirement_review.py','material_regions.py','case_checks.py','material_task.py','material_writer.py',
               'corpus.py','qdii_pipeline.py','task_validation.py','task_report.py','ppt_delivery.py','material_cli.py','material_delivery.py',
-              'word_preparation.py']
+              'word_preparation.py','template_retention.py','review_packet.py']
     values={n:file_hash(PROJECT/'src'/n) for n in modules if (PROJECT/'src'/n).exists()}
     values.update({'config/'+p.name:file_hash(p) for p in sorted((PROJECT/'config').glob('*.json'))
                    if p.name in {'field_dictionary.json','contract_field_extensions.json','qdii25_profile.json'}})
@@ -167,8 +167,8 @@ def validate_review(task, review):
             if atomic_mode:requirement_state = validate_requirements(task, review, rechecks)
         except ValueError as exc:raise ReviewError(str(exc)) from exc
 
-    def requirement_operation(record, mid, sid):
-        try:validate_operation_requirements(requirement_state,record,mid,sid)
+    def requirement_operation(record, mid, sid, *, allow_template=False):
+        try:validate_operation_requirements(requirement_state,record,mid,sid,allow_template=allow_template)
         except ValueError as exc:raise ReviewError(str(exc)) from exc
 
     def evidence_check(evidence, field_id=None, replacing=False):
@@ -191,6 +191,8 @@ def validate_review(task, review):
                 authoritative = True
             elif typ == 'material' and eid in materials:
                 pass  # May explain an unresolved comment; cannot alone replace facts.
+            elif typ == 'template' and requirement_state and eid in requirement_state.get('template_retentions',{}):
+                if replacing: raise ReviewError('沿用模板的依据只能保留原值及加批注，不能授权改写新值')
             else:
                 raise ReviewError(f'未知或无效依据：{typ}/{eid}')
         if replacing and not authoritative:
@@ -252,7 +254,7 @@ def validate_review(task, review):
         if not record.get('reviewed') or not record.get('reason'):
             raise ReviewError('槽位内容处置必须审阅并填写理由')
         action = record.get('action')
-        if action not in {'rewrite','retain_verified','pending_placeholder','not_applicable','retain_static'}:
+        if action not in {'rewrite','retain_verified','retain_template_exception','pending_placeholder','not_applicable','retain_static'}:
             raise ReviewError('未知槽位内容处置动作')
         peers = [d for d in decisions if d['material_id'] == mid and d['slot_id'] == sid]
         replacements = [d for d in peers if d['kind'] in {'replace_text','placeholder'}]
@@ -284,7 +286,7 @@ def validate_review(task, review):
             evidence_check(record.get('evidence'))
         else:
             if atomic_mode:
-                requirement_operation(record,mid,sid)
+                requirement_operation(record,mid,sid,allow_template=True)
             else:
                 field = _mapped_field(slot, record)
                 evidence_check(record.get('evidence'), field, replacing=True)
@@ -292,10 +294,19 @@ def validate_review(task, review):
                 raise ReviewError('缺项占位不能标记内容完成')
             if action == 'rewrite' and not replacements:
                 raise ReviewError('重写处置必须关联实际正文修改')
-            if action == 'retain_verified':
+            retained = [requirement_state['records'][rid] for rid in record.get('requirement_ids',[])
+                        if atomic_mode and requirement_state['records'][rid]['status']=='template_retained']
+            if action == 'retain_template_exception':
+                if not retained or replacements:
+                    raise ReviewError('模板例外保留须有已校验保留需求且不能有正文修改；混合修改使用rewrite')
+            if action in {'retain_verified','retain_template_exception'}:
+                if action == 'retain_verified' and retained:
+                    raise ReviewError('沿用模板不能标为已核实保留，须使用retain_template_exception')
                 if replacements: raise ReviewError('有正文修改应使用rewrite处置')
                 source_map={**{('fact',fid):f for fid,f in facts.items()},**{('recheck',fid):f for fid,f in rechecks.items()},
                             **{('supplement',fid):f for fid,f in supplement_map.items()}}
+                if atomic_mode:
+                    source_map.update({('template',rid):source for rid,source in requirement_state.get('template_retentions',{}).items()})
                 evidence_text='\n'.join(str(source_map[(e['type'],e['id'])].get('raw_text',''))+' '+
                     str(source_map[(e['type'],e['id'])].get('value','')) for e in record['evidence']
                     if (e['type'],e['id']) in source_map)
@@ -338,7 +349,7 @@ def validate_review(task, review):
             ids=r.get('requirement_ids',[])
             candidates=[requirement_state['records'].get(rid) for rid in ids]
             if (not ids or any(not req or (req['material_id'],req['slot_id'])!=(check['material_id'],check['slot_id'])
-                              or req.get('reviewed') is not True or req['status'] not in {'verified','not_applicable'} for req in candidates)):
+                              or req.get('reviewed') is not True or req['status'] not in {'verified','not_applicable','template_retained'} for req in candidates)):
                 raise ReviewError('检查结案须关联同槽位已核实或有依据不适用的原子需求')
             relevant=[req for req in candidates if not required_field or req['field_id']==required_field]
             if check.get('type')=='missing_evidence' and not check.get('required_evidence_field'):
@@ -354,6 +365,9 @@ def validate_review(task, review):
                             and req not in relevant):
                         relevant.append(req)
             if not relevant:raise ReviewError('结案需求字段未覆盖该检查项')
+            if any(req['status']=='template_retained' for req in relevant):
+                if check.get('type') not in {'missing_evidence','external_information','external_parameter'}:
+                    raise ReviewError('沿用模板只能处置对应字段缺项，不能跳过冲突、结构或其他核对检查')
             allowed={(e['type'],e['id']) for req in relevant for e in req['evidence']}
             if not r.get('evidence') or not {(e['type'],e['id']) for e in r['evidence']}.issubset(allowed):
                 raise ReviewError('结案依据须来自所关联的原子需求')
@@ -391,7 +405,8 @@ def validate_review(task, review):
                 raise ReviewError('外部信息的新数值尚未出现在最终正文')
         resolved.add(cid)
     return {'operations': operations, 'supplements': supplements, 'resolved_checks': sorted(resolved),
-            'template_coverage':coverage,'requirement_coverage':requirement_coverage,'contract_rechecks':rechecks}
+            'template_coverage':coverage,'requirement_coverage':requirement_coverage,'contract_rechecks':rechecks,
+            'template_retentions':requirement_state.get('template_retentions',{}) if requirement_state else {}}
 
 
 def analyze(contract_path, material_paths, *, product=None, as_of=None, project_dir=None,
@@ -579,6 +594,7 @@ def apply_task(task, review, output_dir):
               'supplements': checked['supplements'], 'resolved_checks': checked['resolved_checks'],
               'template_coverage':checked['template_coverage'],
               'requirement_coverage':checked['requirement_coverage'],'contract_rechecks':checked['contract_rechecks'],
+              'template_retentions':checked['template_retentions'],
               'source_hashes_unchanged': all(source_version_matches(s) for s in
                                            [task['contract']['source']] + [m['source'] for m in task['materials']]),
               'all_updates_complete': False,

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import hashlib
 import os
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import tempfile
 from zipfile import BadZipFile, ZipFile, ZIP_DEFLATED
@@ -257,7 +258,6 @@ def _prepare(data, operations, kind):
         if op["op_id"] in op_ids: _fail("Duplicate op_id")
         op_ids.add(op["op_id"])
         if op["kind"] not in {"replace_text", "comment"}: _fail("Unsupported operation kind")
-        if kind == "pptx" and op["kind"] != "replace_text": _fail("PPT supports replace_text only")
         if op["kind"] == "replace_text":
             if not isinstance(op.get("after"), str): _fail("Replacement requires string after")
             if op["after"] == op["before"]: _fail("Replacement before and after are identical")
@@ -496,6 +496,89 @@ def _add_comment(entry, roots, data, ids, author, timestamp, replacements):
     return {"comment_id": comment_id}
 
 
+def _ppt_annotation_part(roots, data, owner, kind, default_part, tag):
+    """Resolve the actual internal legacy comment relationship, preserving names."""
+    rel_name = str(PurePosixPath(owner).parent / '_rels' / (PurePosixPath(owner).name + '.rels'))
+    rel_root = roots.get(rel_name)
+    if rel_root is None:
+        rel_root = _parse(data[rel_name], rel_name) if rel_name in data else etree.Element(f'{{{REL}}}Relationships', nsmap={None: REL})
+        roots[rel_name] = rel_root
+    links = [n for n in rel_root if n.get('Type') == OFFICE_REL + kind]
+    if len(links) > 1: _fail(f'Multiple PPT {kind} relationships are unsupported')
+    if links:
+        target = links[0].get('Target', '')
+        if links[0].get('TargetMode') == 'External' or not target or any(x in target for x in ('\\', ':', '?', '#', '%')):
+            _fail(f'Unsafe PPT {kind} relationship')
+        part = posixpath.normpath(target.lstrip('/') if target.startswith('/') else posixpath.join(posixpath.dirname(owner), target))
+        if part.startswith('../') or not part.startswith('ppt/') or not part.endswith('.xml'):
+            _fail(f'Unsafe PPT {kind} part')
+        if part not in roots and part not in data: _fail(f'Missing PPT {kind} part')
+    else:
+        part = default_part
+        number = 1
+        while part in roots or part in data:
+            stem, extension = posixpath.splitext(default_part)
+            part = f'{stem}-{number}{extension}'; number += 1
+        _relationship(roots, data, owner, kind, posixpath.relpath(part, posixpath.dirname(owner)))
+    if part not in roots:
+        roots[part] = _parse(data[part], part) if part in data else etree.Element(f'{{{P}}}{tag}', nsmap={'p': P})
+    if roots[part].tag != f'{{{P}}}{tag}': _fail('Modern or unsupported PPT comments require manual review')
+    _content_type(roots, data, part, 'application/vnd.openxmlformats-officedocument.presentationml.' + kind + '+xml')
+    return part, roots[part]
+
+
+def _ppt_comment_state(roots, data, author):
+    if 'ppt/presentation.xml' not in data: _fail('PPT comments require a standard presentation part')
+    presentation = _parse(data['ppt/presentation.xml'], 'ppt/presentation.xml')
+    if presentation.tag != f'{{{P}}}presentation': _fail('Unsupported PPT presentation namespace')
+    for name, body in data.items():
+        if name.endswith('.rels'):
+            for relation in _parse(body, name):
+                typ = relation.get('Type', '')
+                if any(word in typ.lower() for word in ('comment', 'person')) and typ not in {OFFICE_REL+'comments', OFFICE_REL+'commentAuthors'}:
+                    _fail('Modern or unsupported PPT comments require manual review')
+    part, root = _ppt_annotation_part(roots, data, 'ppt/presentation.xml', 'commentAuthors', 'ppt/commentAuthors.xml', 'cmAuthorLst')
+    ids = []
+    for node in root:
+        if node.tag != f'{{{P}}}cmAuthor' or not re.fullmatch(r'\d+', node.get('id', '')):
+            _fail('Unsupported PPT comment author list')
+        ids.append(int(node.get('id')))
+    if len(ids) != len(set(ids)): _fail('Duplicate PPT comment author IDs')
+    # A dedicated author record for this run keeps old authors/index counters
+    # untouched and makes source-bound replay independent of display name.
+    author_id = str(max(ids, default=-1) + 1)
+    node = etree.SubElement(root, f'{{{P}}}cmAuthor', id=author_id, name=author,
+                            initials=author[:2], lastIdx='0', clrIdx=str(len(ids)))
+    return {'author_id': author_id, 'author': node, 'author_part': part, 'index': 0}
+
+
+def _add_ppt_comment(entry, roots, data, state, timestamp):
+    slide = entry['op']['part']
+    if not re.fullmatch(r'ppt/slides/[^/]+\.xml', slide): _fail('PPT comments must target a slide part')
+    root = entry['paragraph'].getroottree().getroot()
+    if root.tag != f'{{{P}}}sld': _fail('PPT comments must target slide content')
+    part, comments = _ppt_annotation_part(roots, data, slide, 'comments',
+        'ppt/comments/' + PurePosixPath(slide).stem + '-comments.xml', 'cmLst')
+    if any(node.tag != f'{{{P}}}cm' for node in comments):
+        _fail('Unsupported PPT comment list structure requires manual review')
+    state['index'] += 1
+    index = str(state['index']); state['author'].set('lastIdx', index)
+    x, y = 0, 0
+    for ancestor in entry['paragraph'].iterancestors():
+        if ancestor.tag in {f'{{{P}}}sp', f'{{{P}}}graphicFrame'}:
+            offset = ancestor.find('p:spPr/a:xfrm/a:off', NS) if ancestor.tag == f'{{{P}}}sp' else ancestor.find('p:xfrm/a:off', NS)
+            if offset is not None:
+                try: x, y = round(int(offset.get('x')) / 1587.5), round(int(offset.get('y')) / 1587.5)
+                except (TypeError, ValueError): _fail('Invalid PPT shape position for comment')
+            break
+    comment = etree.SubElement(comments, f'{{{P}}}cm', authorId=state['author_id'], dt=timestamp, idx=index)
+    etree.SubElement(comment, f'{{{P}}}pos', x=str(x), y=str(y))
+    etree.SubElement(comment, f'{{{P}}}text').text = entry['op']['after']
+    return {'comment_id': index, 'comment_part': part, 'author_id': state['author_id'],
+            'author_part': state['author_part'], 'anchor_text': entry['op']['before'],
+            'anchor_kind': 'slide_position'}
+
+
 def _enable_tracking(roots, data):
     name = "word/settings.xml"
     if name not in roots:
@@ -528,13 +611,16 @@ def _build(data, operations, kind, author):
     ids = _allocate_ids(data)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     results = {}
+    ppt_state = (_ppt_comment_state(roots, data, author) if kind == 'pptx' and
+                 any(e['op']['kind'] == 'comment' for e in prepared) else None)
     for entries in grouped.values():
         replacements = sorted((e for e in entries if e["op"]["kind"] == "replace_text"), key=lambda e: e["start"], reverse=True)
         for entry in replacements:
             detail = (_replace_word(entry, ids, author, timestamp) if kind == "docx" else _replace_ppt(entry)) or {}
             results[entry["op"]["op_id"]] = detail
         for entry in (e for e in entries if e["op"]["kind"] == "comment"):
-            results[entry["op"]["op_id"]] = _add_comment(entry, roots, data, ids, author, timestamp, replacements)
+            results[entry["op"]["op_id"]] = (_add_comment(entry, roots, data, ids, author, timestamp, replacements)
+                if kind == 'docx' else _add_ppt_comment(entry, roots, data, ppt_state, timestamp))
     if kind == "docx" and any(e["op"]["kind"] == "replace_text" for e in prepared):
         _enable_tracking(roots, data)
     updated = dict(data)
@@ -568,6 +654,19 @@ def _normalized_review(data, original, name):
                 _fail("New revisions/comments must retain review author and UTC date")
             for attr in ("author", "date", "initials"):
                 node.attrib.pop(f"{{{W}}}{attr}", None)
+    if root.tag == f'{{{P}}}cmLst':
+        old_ids = {(n.get('authorId'), n.get('idx')) for n in _parse(original, name)} if original else set()
+        for node in root:
+            if (node.get('authorId'), node.get('idx')) not in old_ids:
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', node.get('dt', '')):
+                    _fail('New PPT comments must retain UTC date')
+                node.attrib.pop('dt', None)
+    if root.tag == f'{{{P}}}cmAuthorLst':
+        old_ids = {n.get('id') for n in _parse(original, name)} if original else set()
+        for node in root:
+            if node.get('id') not in old_ids:
+                if not node.get('name', '').strip(): _fail('New PPT comments must retain author')
+                node.attrib.pop('name', None); node.attrib.pop('initials', None)
     return _canonical(root)
 
 
@@ -685,7 +784,8 @@ def _validate_data(source, output, operations, kind):
         except PatchPlanError as exc:
             issues.append({"code": "comment_anchor_validation_error", "message": str(exc)})
     for result in results:
-        result["passed"] = not any(i.get("part") == result["part"] for i in issues)
+        related = {result['part'], result.get('comment_part'), result.get('author_part')}
+        result["passed"] = not any(i.get("part") in related for i in issues)
     return {"passed": not issues, "issues": issues, "changed_parts": changed, "operation_results": results}
 
 

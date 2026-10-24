@@ -61,6 +61,7 @@ def validate_task_outputs(task,result,check_deliveries=True,material_id=None):
                                        for c in task.get('checks',[])),
             'template_coverage':checked['template_coverage'],'delivery_validation':delivery_check,
             'requirement_coverage':checked['requirement_coverage'],'contract_rechecks':checked['contract_rechecks'],
+            'template_retentions':checked.get('template_retentions',{}),
             'visual_status':{r['material_id']:r.get('visual_status','not_checked') for r in result['results']},
             'scope':'来源及输出完整性；不替代视觉验收和待核项处理'}
 
@@ -81,6 +82,7 @@ def record_acceptance(task,result,qa):
     accepted['template_coverage']=reviewed['template_coverage']
     accepted['requirement_coverage']=reviewed['requirement_coverage']
     accepted['contract_rechecks']=reviewed['contract_rechecks']
+    accepted['template_retentions']=reviewed.get('template_retentions',{})
     for r in accepted['results']:
         check=by_id[r['material_id']]
         if check.get('output_sha256')!=r['output_sha256']: raise ReviewError('验收输出版本不一致')
@@ -119,5 +121,5 @@ def record_acceptance(task,result,qa):
         accepted['all_updates_complete']=accepted['all_updates_complete'] and all(
             d.get('status')=='ready' and d['native_opened'] and d['visual_status']=='passed'
             and d.get('content_status')!='pending_draft' for d in accepted['deliveries'])
-    accepted['acceptance_note']='验收声明绑定具体输出哈希；待核项全部结案且原生打开及视觉检查通过后才可全部完成。'
+    accepted['acceptance_note']='验收声明绑定具体输出哈希；待核项全部处置且原生打开及视觉检查通过后才可全部完成。template_retentions为按用户规则沿用的模板值，不属于合同已核实事实。'
     return accepted
