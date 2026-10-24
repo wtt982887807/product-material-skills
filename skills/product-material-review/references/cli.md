@@ -128,7 +128,7 @@ AI 读取封面、要素表及上下文，分别确认每份模板的主体。�
 
 ### 分类和选页
 
-默认名称含“海报”或 `poster` 的文件归为 `poster`，含“一页通”、`factsheet` 或 `onepager` 的文件归为 `onepager`；其他 PPTX 归为 `ppt`，其余归为 `onepager`。这是初始分类，AI 应按实际用途核对，必要时填写 [review.delivery_plan](review.md#交付计划)。一页通和海报保留模板原文件名；`ppt` 在模板文件名扩展名前追加“产品要素”。重名用物料 ID 子目录区分。
+默认名称含“海报”或 `poster` 的文件归为 `poster`，含“一页通”、`factsheet` 或 `onepager` 的文件归为 `onepager`；其他 PPTX 归为 `ppt`，其余归为 `onepager`。这是初始分类，AI 应按实际用途核对，必要时填写 [review.delivery_plan](review.md#交付计划)。所有类型先按合同更新文件名中的产品名称，保留可靠的模板渠道、日期和类型信息；`ppt` 再追加一次“产品要素”，一页通和海报不额外追加。重名用物料 ID 子目录区分。
 
 所有 PPTX（含海报、一页通）使用安全的选中主体要素页建议；确需显式指定时在交付计划填写源页码和具体依据。页码升序、去重且为正整数；未选产品页、混页或身份待核要素页仍会受阻，不能以手动页码或更换 `kind` 绕过。受阻时 `deliveries` 记录原因，不回退交付完整稿。
 
@@ -166,7 +166,7 @@ python -X utf8 $materialCli analyze `
 | `updated_01/update_result.json` | 内部输出、`deliveries` 最终交付记录、哈希、状态、修改验证和未决检查 |
 | `updated_01/review.applied.json` | 实际执行的审阅记录 |
 | `updated_01/internal/` | 完整审阅稿，供修改验证和追溯 |
-| `updated_01/delivery/` | 海报/一页通保持模板文件名，PPT 为“模板原名产品要素.pptx”；重名时增加物料 ID 子目录 |
+| `updated_01/delivery/` | 所有文件名按合同更新产品并保留可靠模板元信息，普通 PPT 追加一次“产品要素”；重名时增加物料 ID 子目录 |
 | `updated_01/delivery_manifest.json` | `task_id`、`delivery_required` 和各物料 `deliveries`；受阻项没有输出路径 |
 | 交付 PPTX 同目录的 `.delivery.json` | 选页映射、来源/输出哈希、结构校验及包含/排除的修改决定 |
 | `updated_01/accepted_result.json` | 实际验收结果；最终 `deliveries` 含原生/视觉状态，初始交付清单仍保留生成时状态 |
@@ -182,3 +182,5 @@ python -X utf8 $materialCli analyze `
 可迁移的是完整 Skill 和本次用户提供的输入资料。历史任务快照保存原件、转换或准备副本的实际路径，单纯复制旧 `task.json` 不代表路径和版本已迁移。应在新环境对同一批源文件重新分析；含历史修订的 Word 物料仍需可用的 Windows Microsoft Word 完成准备，再由 AI 按新任务 ID、槽位和事实 ID 复核旧审阅决定。
 
 当前 CLI 不自动迁移旧任务路径。输入搬移后重新分析，不手改快照或借用原电脑缓存。Skill 包不应包含用户合同、物料、历史任务、凭证、原电脑路径或私人数据。
+
+`deliver-ppt` 也执行同一命名与续页完整性检查：`--out` 的文件名须为按合同更新后的名称；手工 `--pages` 不能遗漏已确认或待核的要素页。常规流程优先用 `apply` 自动命名和导出，避免手写名字。
