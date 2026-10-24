@@ -1,5 +1,7 @@
 from pathlib import Path
 from copy import deepcopy
+from zipfile import ZipFile, BadZipFile
+from lxml import etree
 from material_task import file_hash, validate_review, ReviewError, source_version_matches
 
 
@@ -11,7 +13,7 @@ def validate_task_outputs(task,result):
     try:
         checked=validate_review(task,result.get('applied_review',{}))
     except ReviewError as exc:
-        checked={'operations':{}}
+        checked={'operations':{},'template_coverage':{},'resolved_checks':[], 'requirement_coverage':{},'contract_rechecks':{}}
         issues.append(f'审阅决定无效：{exc}')
     sources=[task['contract']['source']]+[m['source'] for m in task['materials']]
     for s in sources:
@@ -28,9 +30,26 @@ def validate_task_outputs(task,result):
         if output.exists() and mid in checked['operations']:
             fresh=validate_updated(materials[mid]['source']['path'],output,checked['operations'][mid])
             if not fresh.get('passed'): issues.extend(f"{mid}重新验证：{x}" for x in fresh.get('issues',['修改不匹配']))
+        if output.exists() and mid in checked['template_coverage']:
+            from material_writer import _parse, _text, NS
+            kind=Path(materials[mid]['source']['path']).suffix.lower().lstrip('.')
+            try:
+                with ZipFile(output) as package:
+                    for sid,expected in checked['template_coverage'][mid]['final_texts'].items():
+                        slot=next(s for s in materials[mid]['slots'] if s['slot_id']==sid)
+                        root=_parse(package.read(slot['part']),slot['part'])
+                        namespaces=dict(NS); namespaces.update({k:v for k,v in root.nsmap.items() if k})
+                        nodes=root.xpath(slot['xpath'],namespaces=namespaces)
+                        if len(nodes)!=1 or _text(nodes[0],kind)!=expected:
+                            issues.append(f'{mid}/{sid}最终可见正文与审阅处置不一致')
+            except (KeyError,ValueError,OSError,BadZipFile,etree.XPathError) as exc:
+                issues.append(f'{mid}正文覆盖重新验证失败：{exc}')
     if seen!=set(materials): issues.append('有上传物料未生成结果记录')
     return {'passed':not issues,'issues':issues,'material_count':len(seen),
-            'pending_review_count':sum(len(r['pending_check_ids']) for r in result['results']),
+            'pending_review_count':sum(c.get('severity')!='info' and c['check_id'] not in checked['resolved_checks']
+                                       for c in task.get('checks',[])),
+            'template_coverage':checked['template_coverage'],
+            'requirement_coverage':checked['requirement_coverage'],'contract_rechecks':checked['contract_rechecks'],
             'visual_status':{r['material_id']:r.get('visual_status','not_checked') for r in result['results']},
             'scope':'来源及输出完整性；不替代视觉验收和待核项处理'}
 
@@ -48,6 +67,9 @@ def record_acceptance(task,result,qa):
     accepted=deepcopy(result)
     reviewed=validate_review(task,result['applied_review'])
     accepted['resolved_checks']=reviewed['resolved_checks']
+    accepted['template_coverage']=reviewed['template_coverage']
+    accepted['requirement_coverage']=reviewed['requirement_coverage']
+    accepted['contract_rechecks']=reviewed['contract_rechecks']
     for r in accepted['results']:
         check=by_id[r['material_id']]
         if check.get('output_sha256')!=r['output_sha256']: raise ReviewError('验收输出版本不一致')
@@ -58,7 +80,10 @@ def record_acceptance(task,result,qa):
         r['pending_check_ids']=[c['check_id'] for c in task.get('checks',[]) if c.get('severity')!='info'
                                 and c.get('material_id') in (None,r['material_id'])
                                 and c['check_id'] not in reviewed['resolved_checks']]
+        coverage=reviewed['template_coverage'].get(r['material_id'],{})
+        r['pending_content_slot_ids']=coverage.get('unreviewed_slot_ids',[])+coverage.get('pending_slot_ids',[])
     remaining=[c for c in task.get('checks',[]) if c.get('severity')!='info' and c['check_id'] not in accepted['resolved_checks']]
-    accepted['all_updates_complete']=not remaining and all(r['native_opened'] and r['visual_status']=='passed' for r in accepted['results'])
+    accepted['all_updates_complete']=not remaining and all(r['native_opened'] and r['visual_status']=='passed'
+                                                          and not r['pending_content_slot_ids'] for r in accepted['results'])
     accepted['acceptance_note']='验收声明绑定具体输出哈希；待核项全部结案且原生打开及视觉检查通过后才可全部完成。'
     return accepted

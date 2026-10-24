@@ -11,6 +11,14 @@
 
 需要目标电脑上可用的 Python 3.11 或更新版本。核心处理无需模型 API 密钥；Word/PowerPoint 的原生打开和版面验收需要相应应用或渲染工具。
 
+可在 Codex 中直接说：
+
+> 从 `wtt982887807/product-material-skills` 仓库的 `skills/product-material-review` 安装 Skill，同时安装依赖并运行 doctor 验证。
+
+从 GitHub 安装的是本地副本，不会自动同步。后续可要求 Codex 从同一目录更新完整 Skill：先备份并比对本地修改，妥善合并自定义规则，再检查依赖、校验包和运行 `doctor`；失败恢复旧版。更新后重新分析业务输入。本包没有自动更新器。
+
+手动安装步骤：
+
 1. 将整个 `product-material-review` 文件夹复制到目标电脑的 `$CODEX_HOME/skills/`。未设置 `CODEX_HOME` 时，放入默认 `~/.codex/skills/`。保留 `scripts/`、`runtime/`、`references/` 等全部内容，不能只复制 `SKILL.md`。
 2. 在复制后的 `product-material-review` 目录打开终端，执行：
 
@@ -22,11 +30,11 @@ python -X utf8 scripts/material_agent.py doctor
 
 `python` 可以替换为目标电脑上已验证的 Python 解释器命令或路径。依赖安装与 `doctor` 必须使用同一个解释器；`doctor` 应返回 `ok: true`。
 
-3. 在能读取该 Skill 的 Codex 会话中提供一份合同和要更新的 DOCX/PPTX 物料，使用例如：
+3. 在能读取该 Skill 的 Codex 会话中提供一份目标产品合同和至少一份 DOCX/PPTX 格式模板，使用例如：
 
-> 使用 $product-material-review，按这份合同更新一页通与 PPT。Word 保留修订和批注，PPT 只输出目标产品要素页；缺少的信息请列出来。
+> 使用 $product-material-review，内容按这份合同，格式按其他上传的一页通和 PPT 模板制作。模板可以是其他产品；Word 保留修订批注，PPT 只输出模板自身的要素页，缺项列出并清理为待补占位。
 
-AI 会提取和审阅合同、整理待补清单、维护审阅 JSON 并调用脚本。业务用户无需手写 JSON。程序生成来源可追溯的更新副本，不覆盖原件；缺项及未完成验收会保留状态。
+AI 会建立合同候选底稿、选择模板主体、把模板要求拆为原子需求并回查合同，再逐项核对后调用脚本。新字段无需先加入公共字典；模板旧值不作为目标事实。用户只需补充回查后仍需要的外部信息，无需手写 JSON。默认采用 `template` 模式；只有审阅已有同产品物料时才显式选择 `review` 模式。程序生成来源可追溯的副本，不覆盖原件；缺项及未完成验收会保留状态。
 
 CLI 可以从任意工作目录运行：在其他目录中调用实际安装位置的 `scripts/material_agent.py`，输入与输出路径使用本次实际路径。完整命令见 [CLI 参考](references/cli.md)。
 

@@ -204,7 +204,7 @@
   "profile_id": "qdii25_contract_rules",
   "strategy_display": {
     "exclude_title_pattern": "发生情形和条件",
-    "reason": "展示是否仅保留主策略标题，须按本次目标物料逐项核对；特殊情形仍完整保留于合同底稿。此规则不授权删除合同条款。"
+    "reason": "展示是否仅保留主策略标题，须按本次模板展示结构核对；特殊情形仍完整保留于合同底稿。模板示例不是目标产品的事实依据。"
   },
   "target": "inputs/factsheet.docx",
   "target_table": {
@@ -325,7 +325,7 @@
       "field_id": "opening_schedule",
       "mode": "opening",
       "name": "开放期",
-      "support_note": "须在本次合同逐句核对开放安排及调整权限；跨条款依据不能自动授权扩大调整范围，具体档期需本次有效依据。",
+      "support_note": "须在本次合同逐句核对开放安排及调整权限；具体档期需本次有效依据，不得继承模板日期。",
       "support_rules": [
         {
           "chapter": "资产管理计划的参与、退出和转让",
@@ -404,7 +404,7 @@
       "field_id": "manager_risk_rating",
       "mode": "risk",
       "name": "风险等级",
-      "support_note": "管理人风险评级、销售机构评级与渠道披露规则应分别核实；一般保留条款不能自动替代渠道依据。",
+      "support_note": "管理人风险评级、销售机构评级与渠道披露规则应分别核实；不得把模板评级作为目标产品依据。",
       "support_rules": [
         {
           "chapter": "集合计划的投资",

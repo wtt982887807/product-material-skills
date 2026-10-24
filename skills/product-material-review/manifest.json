@@ -6,39 +6,44 @@
   ],
   "files": [
     {
-      "bytes": 2752,
+      "bytes": 3633,
       "path": "INSTALL.md",
-      "sha256": "1d72f9ada21baa61f827e1d46d3baec00e0588c189ac6c84f2f607379e27a9b7"
+      "sha256": "7a5c1830e9bb7a5c0ab279be80502a64140eda036d5cc519d4ce8fb5c45a4e9e"
     },
     {
-      "bytes": 3948,
+      "bytes": 5198,
       "path": "SKILL.md",
-      "sha256": "ce2480a4bae78839cf3e53de62b5e6c468fcd9b084402e567e9063627942ee42"
+      "sha256": "efbbf7633104ed3bd95eddac803b372a7fbd2f10d948229d63b40bcc2c6609de"
     },
     {
       "bytes": 6,
       "path": "VERSION",
-      "sha256": "44e161e4495cac2cf7858043e9e6418e9579f0ddcfae826f9a372622968ce066"
+      "sha256": "1e5b51cde515396a9fa762909cf8ca6584ccc564b325d2eebeea76175fe95c4d"
     },
     {
-      "bytes": 354,
+      "bytes": 410,
       "path": "agents/openai.yaml",
-      "sha256": "d200a9d23f4ed30b599095bf233ca48e6f2ee0c7f52dc64a07b421840e5ea639"
+      "sha256": "ad2d415fc998ffff7b6f63b79e45d0cb41678ac6fb7d22ac46502fb279187a34"
     },
     {
-      "bytes": 6654,
+      "bytes": 10678,
       "path": "references/cli.md",
-      "sha256": "ef77abd21d058c4149774cb70c44cfa37626fec66ce0812765e74c210b536431"
+      "sha256": "64f74fd715814ef59b0529f8edf108f80d685fda9bb5eddd5e6d5292f3648ea4"
     },
     {
-      "bytes": 5443,
+      "bytes": 7524,
       "path": "references/qa-and-delivery.md",
-      "sha256": "71f5c5d038e8f83ba54777abc8b8b01213d901479bc95b2aa04b416c2e6cf862"
+      "sha256": "7958ee8234a2770b2e41def76a6b7cd9ed06fa25f9a9446783df8a6b9268c834"
     },
     {
-      "bytes": 5206,
+      "bytes": 8535,
+      "path": "references/requirements.md",
+      "sha256": "bbe75d1378fb8fcf7f7e87a7f0cf489cfb87a63002ad4a38f9e84e96ba2ff452"
+    },
+    {
+      "bytes": 10317,
       "path": "references/review.md",
-      "sha256": "d732f2b8044788fcdff8dd1d18cee0d00a9f61617f043d66465e675fd53ffd83"
+      "sha256": "2ad907ab69d69b6219edd94f66fc0ce0d122f66b7c58862b9cb5db7881def82f"
     },
     {
       "bytes": 25,
@@ -56,14 +61,14 @@
       "sha256": "0e388333562a35cd3f62c64d788e374eec47db78db1a6527a6ed4dba75b80a05"
     },
     {
-      "bytes": 11274,
+      "bytes": 11253,
       "path": "runtime/config/qdii25_profile.json",
-      "sha256": "d37f380fb77df000bd4d3c95906ba052d7095d111c328f69e68d195dabef5188"
+      "sha256": "8697110aa0bb364baa95f2961aba3d56b336f574034700fe20add32202211626"
     },
     {
-      "bytes": 6620,
+      "bytes": 9288,
       "path": "runtime/src/case_checks.py",
-      "sha256": "9d5c12628c05b7212fca51fc53e917afb131431dade6015c77bfa21b4198faa3"
+      "sha256": "96878753af88aaf89e78123aedc76dcdbef97b08b894eec342ff5e49c5930856"
     },
     {
       "bytes": 21404,
@@ -71,24 +76,29 @@
       "sha256": "15c04082ed1b8a002669d4c026c171c8ecae960b3513a700ab3a755f18209d41"
     },
     {
+      "bytes": 17081,
+      "path": "runtime/src/contract_recheck.py",
+      "sha256": "a5d7acdd54e3ee3764c99ec17087dc163e4ebcc81b12e1039bba9137f5d7b8f7"
+    },
+    {
       "bytes": 37424,
       "path": "runtime/src/corpus.py",
       "sha256": "0a613b506888558d8c99d411f45329f69b83382eacf2b2e3e427f674d32dc876"
     },
     {
-      "bytes": 8537,
+      "bytes": 13904,
       "path": "runtime/src/material_cli.py",
-      "sha256": "d93e7929d782e7e075232764ba184e2d477b829355fd1cd33acc7529db32c334"
+      "sha256": "bec935b568b10afd9c6e071d0be319ddf5ea07fd3d9cbafd4f724d4fc4038761"
     },
     {
-      "bytes": 35224,
+      "bytes": 49560,
       "path": "runtime/src/material_regions.py",
-      "sha256": "2cb80a2230778221941016f3938c098cc437f30bc10cc88b3810c5cd19e91b98"
+      "sha256": "e4a490e6c97caa77f14d0c736497c5818b68f7ff342167de83f97c7ded78e94b"
     },
     {
-      "bytes": 18837,
+      "bytes": 36356,
       "path": "runtime/src/material_task.py",
-      "sha256": "93c5e1bbfce7049ddf5fd024a5f003b791b3ff3065cd20787a1d67c23876265d"
+      "sha256": "34509ab7c13b8799162bdb9642d7d50f7f7ab98287aaae2c1728eccaa92e6b9a"
     },
     {
       "bytes": 37040,
@@ -106,14 +116,19 @@
       "sha256": "a4e68ea3c401e791a6896821060a523c691c46f5f3088ab52cb8628176e5edd8"
     },
     {
-      "bytes": 4339,
-      "path": "runtime/src/task_report.py",
-      "sha256": "89808a5614c312bd612982d47f52e78df2d2ed3ff11996c6a6ba84a29e42c324"
+      "bytes": 15939,
+      "path": "runtime/src/requirement_review.py",
+      "sha256": "8e44f1e74d8de1254c8ba45665a34d9e676d626127be284ea6ba47dc62694275"
     },
     {
-      "bytes": 4065,
+      "bytes": 9378,
+      "path": "runtime/src/task_report.py",
+      "sha256": "bb555553ded3d6d296b3f87184ca50db1ed42ed670745ba72a450f8b4062091c"
+    },
+    {
+      "bytes": 6036,
       "path": "runtime/src/task_validation.py",
-      "sha256": "da0880f0b45bf22cafe1e26791e767fa384464d4cbef3b28f333b38879aab8fd"
+      "sha256": "64b8097d3c936cf7d81dc91187f6bdf198bfe67de291948338f97fedec5067b6"
     },
     {
       "bytes": 777,
@@ -127,6 +142,7 @@
   "runtime_modules": [
     "case_checks",
     "contract_facts",
+    "contract_recheck",
     "corpus",
     "material_cli",
     "material_regions",
@@ -134,9 +150,10 @@
     "material_writer",
     "ppt_delivery",
     "qdii_pipeline",
+    "requirement_review",
     "task_report",
     "task_validation"
   ],
   "source_policy": "verified_runtime_and_public_metadata_only",
-  "version": "1.0.1"
+  "version": "1.2.0"
 }
