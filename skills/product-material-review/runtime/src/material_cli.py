@@ -9,17 +9,32 @@ import sys
 from material_task import PROJECT, ReviewError, file_hash, read_json, write_json
 
 
+def _word_preparation_status():
+    status = {'required_when': 'Word模板含历史修订', 'requires': 'Microsoft Word on Windows',
+              'word_registered': False, 'probe': 'Windows registry Word.Application\\CLSID',
+              'note': '仅探测Word COM注册，不启动Office；注册存在不保证启动及接受修订成功，实际预处理失败会阻断分析。'}
+    if sys.platform == 'win32':
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r'Word.Application\CLSID') as key:
+                status['word_registered'] = bool(winreg.QueryValueEx(key, None)[0])
+        except (ImportError, OSError):
+            pass
+    return status
+
+
 def doctor():
     dependencies={name:importlib.util.find_spec(name) is not None for name in ('lxml','pypdf')}
     required=['field_dictionary.json','contract_field_extensions.json','qdii25_profile.json']
     configs={name:(PROJECT/'config'/name).is_file() for name in required}
     modules={name:(PROJECT/'src'/(name+'.py')).is_file() for name in ('material_cli','material_task','contract_facts',
              'material_regions','material_writer','case_checks','corpus','qdii_pipeline','task_report','task_validation','ppt_delivery',
-             'contract_recheck','requirement_review')}
+             'contract_recheck','requirement_review','material_delivery','word_preparation')}
     return {'ok':sys.version_info >= (3,11) and all(dependencies.values()) and all(configs.values()) and all(modules.values()),
             'python':sys.version.split()[0],'executable':sys.executable,'runtime':str(PROJECT),
             'dependencies':dependencies,'configurations':configs,'modules':modules,
-            'office_required_for_core':False,'office_note':'原生打开及视觉验收需目标机器可用的Office或等效渲染器；不得以结构检查冒充视觉检查。'}
+            'office_required_for_core':False, 'word_preparation':_word_preparation_status(),
+            'office_note':'无历史修订的核心分析与回写不依赖Office；Word旧修订预处理需Windows版Microsoft Word。原生打开及视觉验收需Office或等效渲染器，不得以结构检查冒充视觉检查。'}
 
 
 def register_conversion(source,converted,cache_dir):
@@ -71,11 +86,9 @@ def inspect_review(task,review):
             'scope':'仅审阅记录及依据检查；semantic_review_complete不表示文件已生成或已通过原生和视觉验收。'}
 
 
-def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
-    from task_validation import validate_task_outputs
-    from ppt_delivery import suggest_element_pages,export_selected_slides
-    verified=validate_task_outputs(task,result)
-    if not verified['passed']:raise ReviewError('完整审阅稿未通过重新验证：'+str(verified['issues']))
+def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
+    """Recheck selection and content scope without requiring a delivery to exist."""
+    from ppt_delivery import suggest_element_pages
     material=next((m for m in task['materials'] if m['material_id']==material_id),None)
     record=next((r for r in result['results'] if r['material_id']==material_id),None)
     if material is None or record is None or Path(record['output']).suffix.lower()!='.pptx':raise ReviewError('请选择本任务的PPTX物料')
@@ -94,10 +107,10 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
             raise ReviewError(f'第{page}页含身份待核要素，不能通过手工页码绕过')
     content_status='reviewed_output'
     pending_slots=[]
+    if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
+        raise ReviewError('交付仅允许产品要素页，不能手工加入封面或市场页')
     if task.get('material_mode')=='template':
         from material_task import validate_review
-        if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
-            raise ReviewError('模板交付仅允许产品要素页，不能手工加入封面或市场页')
         checked=validate_review(task,result['applied_review'])
         coverage=checked['template_coverage'][material_id]
         selected_slots={s['slot_id'] for s in material['slots']
@@ -107,6 +120,23 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
             raise ReviewError('模板内容存在未处置或未审阅槽位，禁止交付：'+', '.join(sorted(unreviewed)))
         pending_slots=sorted(set(coverage['pending_slot_ids']) & selected_slots)
         content_status='pending_draft' if pending_slots else 'content_reviewed'
+    from ppt_delivery import _pages, _read_package, _slide_order
+    _,_,slides=_slide_order(_read_package(Path(record['output']).read_bytes()))
+    pages=_pages(pages,len(slides))
+    return {'pages':pages,'content_status':content_status,'pending_slot_ids':pending_slots,
+            'selection':suggestion}
+
+
+def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
+    from task_validation import validate_task_outputs
+    from ppt_delivery import export_selected_slides
+    verified=validate_task_outputs(task,result,check_deliveries=False,material_id=material_id)
+    if not verified['passed']:raise ReviewError('完整审阅稿未通过重新验证：'+str(verified['issues']))
+    selection=validate_ppt_pages(task,result,material_id,pages,review_reason)
+    pages=selection['pages'];suggestion=selection['selection']
+    content_status=selection['content_status'];pending_slots=selection['pending_slot_ids']
+    material=next(m for m in task['materials'] if m['material_id']==material_id)
+    record=next(r for r in result['results'] if r['material_id']==material_id)
     output=Path(output).resolve()
     if output.suffix.lower()!='.pptx':raise ReviewError('交付文件扩展名必须为.pptx')
     manifest=output.with_suffix('.delivery.json')
@@ -176,7 +206,7 @@ def main():
             destination=Path(args.out).resolve()
             sources=[task['contract']['source'],*[m['source'] for m in task['materials']]]
             protected=[Path(args.task).resolve(),*[Path(source[key]).resolve()
-                       for source in sources for key in ('path','converted_path') if source.get(key)]]
+                       for source in sources for key in ('path','converted_path','original_path') if source.get(key)]]
             if args.command=='inspect-review':protected.append(Path(args.review).resolve())
             if destination in protected:raise ReviewError('报告输出不能覆盖任务、审阅记录或输入文件')
             write_json(destination,value)
