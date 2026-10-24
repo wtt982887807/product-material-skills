@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+inputs/
+outputs/
+cache/
+*.doc
+*.docx
+*.pptx
+*.pdf
+*.xlsx
+.env
