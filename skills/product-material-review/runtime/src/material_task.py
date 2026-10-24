@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import shutil
 
-CORE_VERSION = '2.3.0'
+CORE_VERSION = '2.3.1'
 PROJECT = Path(__file__).resolve().parents[1]
 PENDING_PLACEHOLDER = '【待补充】'
 STATIC_TITLES = {'产品要素','产品要素表','产品概要','产品基本信息','基本信息','产品信息',
@@ -48,7 +48,7 @@ def source_version_matches(source):
 
 def engine_hashes():
     modules=['contract_facts.py','contract_recheck.py','requirement_review.py','material_regions.py','case_checks.py','material_task.py','material_writer.py',
-             'corpus.py','qdii_pipeline.py','task_validation.py','task_report.py','ppt_delivery.py','material_cli.py']
+             'corpus.py','qdii_pipeline.py','task_validation.py','task_report.py','ppt_delivery.py','material_cli.py','material_delivery.py']
     values={n:file_hash(PROJECT/'src'/n) for n in modules if (PROJECT/'src'/n).exists()}
     values.update({'config/'+p.name:file_hash(p) for p in sorted((PROJECT/'config').glob('*.json'))
                    if p.name in {'field_dictionary.json','contract_field_extensions.json','qdii25_profile.json'}})
@@ -453,7 +453,7 @@ def analyze(contract_path, material_paths, *, product=None, as_of=None, project_
     task = {'schema_version': 2, 'core_version': CORE_VERSION, 'task_id': task_id,
             'as_of': as_of, 'target_product': identity, 'contract': contract, 'materials': materials,
             'material_mode':material_mode, 'template_map':payload['template_map'],
-            'field_dictionary':fields,
+            'field_dictionary':fields, 'delivery_required':True,
             'engine_hashes': payload['engine_hashes']}
     if material_mode=='template':
         from requirement_review import seed_requirements
@@ -473,7 +473,7 @@ def review_template(task):
             'source_hashes': {'contract': task['contract']['source']['sha256'],
                               **{m['material_id']: m['source']['sha256'] for m in task['materials']}},
             'supplements': [], 'decisions': [], 'resolutions': [], 'slot_dispositions':[],
-            'new_fields':[], 'contract_rechecks':[], 'requirements':[],
+            'new_fields':[], 'contract_rechecks':[], 'requirements':[], 'delivery_plan':{},
             'instructions': ('合同决定目标产品内容，其余文件只提供模板格式。逐一填写交付范围内slot_dispositions；'
                              '未处置或待补槽位不能全部完成。模板名称不同不是错误，但other/ambiguous区域仍不属于所选模板。'
                              if is_template_task(task) else
@@ -502,13 +502,15 @@ def apply_task(task, review, output_dir):
     source_dirs = {Path(m['source']['path']).resolve() for m in task['materials']}
     if out in source_dirs: raise ReviewError('输出目录不能是输入文件')
     out.mkdir(parents=True, exist_ok=True)
+    internal = out / 'internal' if task.get('delivery_required') else out
     destinations={}
     for m in task['materials']:
         source=Path(m['source']['path'])
-        target=out/(m['material_id']+'_'+source.stem+('_审阅稿' if source.suffix.lower()=='.docx' else '_更新稿')+source.suffix)
+        target=internal/(m['material_id']+'_'+source.stem+('_审阅稿' if source.suffix.lower()=='.docx' else '_更新稿')+source.suffix)
         if target.resolve()==source.resolve(): raise ReviewError('禁止覆盖原文件')
         if target.exists(): raise ReviewError(f'输出已存在，请使用新输出目录：{target.name}')
         destinations[m['material_id']]=target
+    internal.mkdir(parents=True, exist_ok=True)
     results = []
     for m in task['materials']:
         mid, source = m['material_id'], Path(m['source']['path'])
@@ -546,6 +548,15 @@ def apply_task(task, review, output_dir):
                                            [task['contract']['source']] + [m['source'] for m in task['materials']]),
               'all_updates_complete': False,
               'note': '结构验证不代替原生打开和视觉验收；含待核项的文件不会标记全部完成。'}
+    if task.get('delivery_required'):
+        from material_delivery import build_deliveries
+        deliveries = build_deliveries(task, result, out)
+        result.update(delivery_required=True, deliveries=deliveries,
+                      delivery_manifest=str(out / 'delivery_manifest.json'))
+        write_json(result['delivery_manifest'], {'task_id':task['task_id'], 'delivery_required':True,
+                                               'deliveries':deliveries})
+    else:
+        result['delivery_required'] = False
     write_json(out / 'update_result.json', result)
     write_json(out / 'review.applied.json', review)
     from task_report import write_review_reports
@@ -584,7 +595,13 @@ def main():
         print(json.dumps({'task': str(save_analysis(task, args.out)), **task['summary']}, ensure_ascii=False))
     elif args.command == 'apply':
         result = apply_task(read_json(args.task), read_json(args.review), args.out)
-        print(json.dumps({k: result[k] for k in ['task_id','source_hashes_unchanged','all_updates_complete']}, ensure_ascii=False))
+        summary = {k: result[k] for k in ['task_id','source_hashes_unchanged','all_updates_complete']}
+        if result.get('delivery_required'):
+            summary.update(delivery_manifest=result['delivery_manifest'],
+                           deliveries=[{k:d[k] for k in ('material_id','kind','status','output','pages','content_status','reason') if k in d}
+                                       for d in result['deliveries']],
+                           blocked_material_ids=[d['material_id'] for d in result['deliveries'] if d['status']=='blocked'])
+        print(json.dumps(summary, ensure_ascii=False))
     elif args.command == 'accept':
         from task_validation import record_acceptance
         accepted=record_acceptance(read_json(args.task),read_json(args.result),read_json(args.qa))
