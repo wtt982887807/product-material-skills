@@ -1,0 +1,5080 @@
+[
+  {
+    "field_id": "product_name",
+    "name": "产品全称",
+    "category": "产品身份",
+    "definition": "法律文件和正文明确的产品完整名称，含系列号及期次。",
+    "aliases": [
+      "产品名称",
+      "基金名称",
+      "计划名称"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "优先正文全称与代码，文件名仅作候选；截断文件名、目录名不得覆盖正文身份。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有产品",
+    "confusable_fields": [
+      "product_short_name",
+      "product_code"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "product_short_name",
+    "name": "产品简称",
+    "category": "产品身份",
+    "definition": "材料采用的简称，不替代法律全称。",
+    "aliases": [
+      "产品简称",
+      "基金简称"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "保留简称对应的产品全称及材料版本。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "简称被明确给出时",
+    "confusable_fields": [
+      "product_name"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "product_code",
+    "name": "产品代码",
+    "category": "产品身份",
+    "definition": "明确归属产品或份额的代码。",
+    "aliases": [
+      "产品代码",
+      "基金代码",
+      "备案编码"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "保存代码类型与份额归属，保留前导零；不同系统代码不相互覆盖。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有代码时",
+    "confusable_fields": [
+      "share_classes",
+      "channel_code"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "share_classes",
+    "name": "份额类别",
+    "category": "产品身份",
+    "definition": "产品份额类别及各自代码和适用费用。",
+    "aliases": [
+      "份额类别",
+      "A类",
+      "C类",
+      "A份额",
+      "C份额"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "将A/C类与费用、业绩和代码逐一绑定，禁止跨份额拼接。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "多份额产品",
+    "confusable_fields": [
+      "product_code",
+      "product_type"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "product_type",
+    "name": "法律产品类型",
+    "category": "产品身份",
+    "definition": "公募基金、资管计划、信托等法律载体及其固定收益/权益/混合分类。",
+    "aliases": [
+      "产品类型",
+      "计划类型"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "分别保存法律载体和资产分类；FOF、QDII是可叠加属性。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有产品",
+    "confusable_fields": [
+      "fund_category",
+      "operation_mode"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "fund_category",
+    "name": "基金类别",
+    "category": "产品身份",
+    "definition": "公募基金的股票型、债券型、混合型及基金中基金分类。",
+    "aliases": [
+      "基金类别",
+      "基金类型"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "保留ETF-FOF、指数增强等原文分类，不从名称猜测。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "基金产品",
+    "confusable_fields": [
+      "product_type"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "operation_mode",
+    "name": "运作方式",
+    "category": "产品身份",
+    "definition": "契约型开放式等法定运作方式。",
+    "aliases": [
+      "运作方式"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "与具体开放日期、最低持有期分别提取。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "opening_schedule",
+      "minimum_holding_period"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "currency",
+    "name": "计价币种",
+    "category": "产品身份",
+    "definition": "金额、份额或资产的计价币种。",
+    "aliases": [
+      "币种",
+      "计价币种",
+      "人民币",
+      "美元"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "从对应金额条款取币种；不能因QDII标签认定美元计价。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "含货币量值时",
+    "confusable_fields": [
+      "minimum_subscription_amount"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "inception_date",
+    "name": "成立日期",
+    "category": "产品身份",
+    "definition": "产品或份额正式成立日期。",
+    "aliases": [
+      "成立日期",
+      "产品成立日期",
+      "成立日",
+      "成立时间"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "raw_value": "string|number",
+      "normalized_date": "YYYY-MM-DD|null",
+      "date_status": "实际|预计|未明确",
+      "calendar_system": "1900|1904|其他|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "区分已成立、预计成立以及不同份额日期；预计值标记状态。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "已成立或明确预计成立时",
+    "confusable_fields": [
+      "sales_period_start",
+      "sales_period_end"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "name_history",
+    "name": "名称与主体变更",
+    "category": "产品身份",
+    "definition": "产品名称或管理主体的历史变更链与生效日。",
+    "aliases": [
+      "更名",
+      "正式变更为",
+      "管理人变更"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "announcement",
+      "regulatory_registration"
+    ],
+    "extraction_rule": "旧名、新名、生效日和变更主体分别存储，不能合并不同时点事实。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "出现变更记载时",
+    "confusable_fields": [
+      "product_name",
+      "manager"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "manager",
+    "name": "管理人",
+    "category": "参与主体",
+    "definition": "在本产品中承担管理人法律角色的主体。",
+    "aliases": [
+      "管理人",
+      "产品管理人",
+      "集合管理人",
+      "基金管理人",
+      "资产管理人"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "legal_name": "string",
+      "branch": "string|null",
+      "role": "string",
+      "scope": "本产品|底层产品|其他",
+      "effective_date": "date|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "以合同角色为准，不能把投资顾问或销售机构填为管理人。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "资管/基金产品",
+    "confusable_fields": [
+      "trustee",
+      "investment_advisor",
+      "distributor"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "custodian",
+    "name": "托管人或保管人",
+    "category": "参与主体",
+    "definition": "承担资产托管或保管角色的主体与分支机构。",
+    "aliases": [
+      "托管人",
+      "托管行",
+      "集合托管人",
+      "基金托管人",
+      "保管人"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "legal_name": "string",
+      "branch": "string|null",
+      "role": "string",
+      "scope": "本产品|底层产品|其他",
+      "effective_date": "date|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保留完整机构、分行及原始角色称谓；境内外托管分别保存。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有托管或保管安排时",
+    "confusable_fields": [
+      "overseas_custodian",
+      "manager"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "overseas_custodian",
+    "name": "境外托管人",
+    "category": "参与主体",
+    "definition": "境外资产托管主体。",
+    "aliases": [
+      "境外托管人",
+      "境外资产托管人"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "legal_name": "string",
+      "branch": "string|null",
+      "role": "string",
+      "scope": "本产品|底层产品|其他",
+      "effective_date": "date|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "仅明确境外托管身份时填入，不用境内托管行推断。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有境外托管安排时",
+    "confusable_fields": [
+      "custodian"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "trustee",
+    "name": "受托人",
+    "category": "参与主体",
+    "definition": "信托产品的受托机构。",
+    "aliases": [
+      "受托人",
+      "信托受托人"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "legal_name": "string",
+      "branch": "string|null",
+      "role": "string",
+      "scope": "本产品|底层产品|其他",
+      "effective_date": "date|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保留信托受托角色，不因资管公司提供投顾服务而替换。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "信托产品",
+    "confusable_fields": [
+      "manager",
+      "investment_advisor"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_advisor",
+    "name": "投资顾问",
+    "category": "参与主体",
+    "definition": "向本产品或底层产品提供投资顾问服务的机构。",
+    "aliases": [
+      "投资顾问",
+      "投顾机构"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "legal_name": "string",
+          "branch": "string|null",
+          "role": "string",
+          "scope": "本产品|底层产品|其他",
+          "effective_date": "date|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "区分本产品投顾与底层资产管理产品投顾，保留作用范围。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在投顾关系时",
+    "confusable_fields": [
+      "manager",
+      "trustee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "distributor",
+    "name": "销售机构",
+    "category": "参与主体",
+    "definition": "销售本产品的机构及其具体角色。",
+    "aliases": [
+      "销售机构",
+      "代销机构",
+      "代理销售机构"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "legal_name": "string",
+          "branch": "string|null",
+          "role": "string",
+          "scope": "本产品|底层产品|其他",
+          "effective_date": "date|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "仅有文件名渠道标签时作为待核实线索，不据此补写合同销售机构。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "销售角色明确时",
+    "confusable_fields": [
+      "channel_name",
+      "manager"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "portfolio_manager",
+    "name": "投资管理人员",
+    "category": "参与主体",
+    "definition": "本产品已任或拟任投资管理人员及任职状态。",
+    "aliases": [
+      "基金经理",
+      "投资经理",
+      "拟任基金经理",
+      "拟任投资经理"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "区分拟任和现任，姓名与任职起止日期匹配；不提取客户个人信息。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "manager_profile",
+      "manager"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_objective",
+    "name": "投资目标",
+    "category": "投资与比较基准",
+    "definition": "合同约定的投资目标。",
+    "aliases": [
+      "投资目标"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "目标不是收益承诺，保留力争等限定词。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "benchmark",
+      "product_highlights"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_scope",
+    "name": "投资范围",
+    "category": "投资与比较基准",
+    "definition": "允许投资的资产、市场、产品和交易方式。",
+    "aliases": [
+      "投资范围"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string|null",
+          "subject": "string",
+          "rule": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>",
+          "remediation_period": "object|null",
+          "children": "array<object>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "按编号保留完整条目及特别揭示；境内境外、直接间接投资分层。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有投资产品",
+    "confusable_fields": [
+      "investment_ratios",
+      "investment_restrictions"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_strategy",
+    "name": "投资策略",
+    "category": "投资与比较基准",
+    "definition": "合同中的策略条目、层级、条件和说明。",
+    "aliases": [
+      "投资策略"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string",
+          "title": "string",
+          "body": "string",
+          "level": "integer",
+          "children": "array<strategy>",
+          "conditions": "array<string>",
+          "display_decision": "show|summarize|omit_with_reason|unreviewed",
+          "display_reason": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "完整保存全部主项与子项；展示选择另设配置，禁止固定取前N条；条件项不得删去。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "investment_scope",
+      "product_highlights"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_ratios",
+    "name": "投资比例",
+    "category": "投资与比较基准",
+    "definition": "按资产类别、地域等设定的投资比例约束。",
+    "aliases": [
+      "投资比例",
+      "投资比例（占集合计划资产总值）",
+      "资产配置比例"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "asset_class": "string",
+          "numerator": "string",
+          "denominator": "string",
+          "lower": "number|null",
+          "upper": "number|null",
+          "unit": "%",
+          "lower_inclusive": "boolean|null",
+          "upper_inclusive": "boolean|null",
+          "calculation_basis": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保存分子、分母、上下限、含不含、计算方法、条件与例外；百分比不得脱离分母。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "leverage_limit",
+      "look_through_rules"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "investment_restrictions",
+    "name": "投资限制",
+    "category": "投资与比较基准",
+    "definition": "集中度、资质、关联交易、境外投资等限制。",
+    "aliases": [
+      "投资限制",
+      "投资禁止"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string|null",
+          "subject": "string",
+          "rule": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>",
+          "remediation_period": "object|null",
+          "children": "array<object>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保留完整编号和例外、纠偏期限及生效条件；不把历史规定当成当前规则。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "investment_ratios",
+      "liquidity_rules"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "look_through_rules",
+    "name": "穿透计算规则",
+    "category": "投资与比较基准",
+    "definition": "投资底层产品时大类资产比例或杠杆的穿透口径。",
+    "aliases": [
+      "穿透原则",
+      "穿透计算",
+      "穿透合并计算"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string|null",
+          "subject": "string",
+          "rule": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>",
+          "remediation_period": "object|null",
+          "children": "array<object>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保存穿透对象、计算指标、数据依据和披露频率限制。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "FOF或投资其他资管产品时",
+    "confusable_fields": [
+      "investment_ratios",
+      "leverage_limit"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "leverage_limit",
+    "name": "杠杆及回购限制",
+    "category": "投资与比较基准",
+    "definition": "总资产/净资产与回购融资等杠杆限制。",
+    "aliases": [
+      "总资产不得超过净资产",
+      "总资产占净资产",
+      "债券正回购余额"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string|null",
+          "subject": "string",
+          "rule": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>",
+          "remediation_period": "object|null",
+          "children": "array<object>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "按不同指标拆分比例与分母；特定持仓条件触发的更严上限单独保留。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在杠杆约束时",
+    "confusable_fields": [
+      "investment_ratios",
+      "investment_restrictions"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "liquidity_rules",
+    "name": "流动性限制",
+    "category": "投资与比较基准",
+    "definition": "受限资产上限及短期可变现资产最低比例等约束。",
+    "aliases": [
+      "流动性受限资产",
+      "可变现资产",
+      "流动性限制"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "number": "string|null",
+          "subject": "string",
+          "rule": "string",
+          "conditions": "array<string>",
+          "exceptions": "array<string>",
+          "remediation_period": "object|null",
+          "children": "array<object>"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保存开放期适用条件、变现天数、分母及资产定义。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在流动性条款时",
+    "confusable_fields": [
+      "investment_restrictions",
+      "redemption_window"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "benchmark",
+    "name": "业绩比较基准",
+    "category": "投资与比较基准",
+    "definition": "评价产品表现的比较基准及权重。",
+    "aliases": [
+      "业绩比较基准",
+      "业绩基准"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "components": [
+        {
+          "name": "string",
+          "weight_pct": "number|null",
+          "return_basis": "string|null",
+          "tax_basis": "string|null"
+        }
+      ],
+      "expression": "string",
+      "effective_date": "date|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement"
+    ],
+    "extraction_rule": "保存指数全称、收益口径、权重、税前税后利率；不得与业绩报酬门槛混同。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "performance_fee_hurdle",
+      "excess_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "duration",
+    "name": "存续期限",
+    "category": "期限与交易",
+    "definition": "产品整体存续期限及起算点。",
+    "aliases": [
+      "存续期",
+      "管理期限",
+      "产品期限"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "unit": "年|月|日|其他",
+      "day_basis": "自然日|交易日|工作日|未注明",
+      "start_event": "string|null",
+      "end_event": "string|null",
+      "inclusive_bounds": "object",
+      "applicability": "string",
+      "conditions": "array<string>",
+      "exceptions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "不得用产品名称中的月份替代正文；与逐笔持有期分开。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "initial_lockup",
+      "minimum_holding_period"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "extension_rule",
+    "name": "展期规则",
+    "category": "期限与交易",
+    "definition": "产品展期条件、程序和限制。",
+    "aliases": [
+      "可展期",
+      "展期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保存条件与通知/退出安排，不能将可展期变成无限期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "可展期产品",
+    "confusable_fields": [
+      "duration"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "initial_lockup",
+    "name": "产品初始封闭期",
+    "category": "期限与交易",
+    "definition": "自成立等统一时点开始的产品封闭运作阶段。",
+    "aliases": [
+      "封闭运作",
+      "初始封闭期",
+      "封闭期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "unit": "年|月|日|其他",
+      "day_basis": "自然日|交易日|工作日|未注明",
+      "start_event": "string|null",
+      "end_event": "string|null",
+      "inclusive_bounds": "object",
+      "applicability": "string",
+      "conditions": "array<string>",
+      "exceptions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "先辨明产品统一封闭还是每笔资金封闭，逐笔条款归minimum_holding_period。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有统一初始封闭安排时",
+    "confusable_fields": [
+      "minimum_holding_period",
+      "lockup_description"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "minimum_holding_period",
+    "name": "逐笔最低持有期",
+    "category": "期限与交易",
+    "definition": "投资者每笔份额不可退出的最短持有期间。",
+    "aliases": [
+      "每笔份额持有",
+      "最短持有期",
+      "最低持有期",
+      "锁定持有期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "unit": "年|月|日|其他",
+      "day_basis": "自然日|交易日|工作日|未注明",
+      "start_event": "string|null",
+      "end_event": "string|null",
+      "inclusive_bounds": "object",
+      "applicability": "string",
+      "conditions": "array<string>",
+      "exceptions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留天数、日历口径、含首尾、起算点、赎回资格及例外。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有逐笔限制时",
+    "confusable_fields": [
+      "initial_lockup",
+      "redemption_fee",
+      "lockup_description"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "opening_schedule",
+    "name": "开放规则",
+    "category": "期限与交易",
+    "definition": "产品周期性开放的总规则。",
+    "aliases": [
+      "开放期",
+      "开放安排",
+      "开放频率",
+      "开放日",
+      "申赎频率"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "frequency": "string|null",
+      "dates": "array<string>",
+      "transactions": "array<string>",
+      "window_length": "object|null",
+      "calendar": "string|null",
+      "date_adjustment": "string|null",
+      "holding_requirement": "object|null",
+      "exceptions": "array<string>",
+      "announcement_rule": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保存频率、日期、交易类型、日历、通知和临时开放例外，不只提一个日期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "开放式或定开产品",
+    "confusable_fields": [
+      "current_open_date",
+      "subscription_window",
+      "redemption_window"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "subscription_window",
+    "name": "参与或申购窗口",
+    "category": "期限与交易",
+    "definition": "允许参与、认购或申购的窗口和预约期。",
+    "aliases": [
+      "参与开放日",
+      "申购预约期",
+      "开放参与"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "标明业务类型、期间及预约/受理区别；不同于退出窗口。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "允许进入时",
+    "confusable_fields": [
+      "redemption_window",
+      "opening_schedule"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "redemption_window",
+    "name": "退出或赎回窗口",
+    "category": "期限与交易",
+    "definition": "允许退出或赎回的窗口和预约期。",
+    "aliases": [
+      "退出开放日",
+      "赎回预约期",
+      "开放退出"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留持有期资格前提；前二日与后三日业务差异分别存储。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "允许退出时",
+    "confusable_fields": [
+      "subscription_window",
+      "minimum_holding_period"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "date_adjustment",
+    "name": "非工作日调整",
+    "category": "期限与交易",
+    "definition": "目标日期遇非工作日或不存在对日时的调整规则。",
+    "aliases": [
+      "非交易日顺延",
+      "非交易日不顺延",
+      "遇节假日",
+      "无对应日期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "区分工作日、交易日和自然日，顺延、取消、不顺延不可等同。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "日期存在调整条件时",
+    "confusable_fields": [
+      "opening_schedule"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "holding_period_calculation",
+    "name": "持有期起算规则",
+    "category": "期限与交易",
+    "definition": "不同参与阶段持有期的起算与终止口径。",
+    "aliases": [
+      "持有期限计算",
+      "从成立日起",
+      "从份额确认之日起"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "募集期与存续期分别绑定起算点，保留含日说明。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "逐笔持有期或收费分档时",
+    "confusable_fields": [
+      "minimum_holding_period",
+      "redemption_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "holding_period_exceptions",
+    "name": "持有期例外",
+    "category": "期限与交易",
+    "definition": "特定来源份额或特殊场景的持有期豁免。",
+    "aliases": [
+      "红利再投资",
+      "不受持有期限制",
+      "不受锁定持有期限制"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "限定适用份额和条件，不能扩展到所有资金。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有例外时",
+    "confusable_fields": [
+      "minimum_holding_period"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "current_open_date",
+    "name": "本次实际开放日",
+    "category": "期限与交易",
+    "definition": "具体某期已公告或预计的开放日期。",
+    "aliases": [
+      "本次开放日",
+      "预期开放日",
+      "开放日期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "raw_value": "string|number",
+      "normalized_date": "YYYY-MM-DD|null",
+      "date_status": "实际|预计|未明确",
+      "calendar_system": "1900|1904|其他|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "operations_calendar"
+    ],
+    "extraction_rule": "记录已确定/预计状态、公告日期和版本；不能只按合同日历推成已确认日期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "具体一期运营安排",
+    "confusable_fields": [
+      "opening_schedule",
+      "sales_period_start"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "minimum_subscription_amount",
+    "name": "物料综合起购金额",
+    "category": "金额与投资者资格",
+    "definition": "物料合并展示的首次及追加、认购及参与金额条款。",
+    "aliases": [
+      "首参金额",
+      "起购金额",
+      "参与金额",
+      "最低参与金额",
+      "认购规则"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留原文及适用交易阶段；可分解才映射原子字段，不能把模糊标签强认成某阶段。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "合并标签或阶段不明时",
+    "confusable_fields": [
+      "initial_subscription_min",
+      "initial_participation_min"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "initial_subscription_min",
+    "name": "首次认购最低金额",
+    "category": "金额与投资者资格",
+    "definition": "募集期首次认购的最低金额。",
+    "aliases": [
+      "首次认购金额",
+      "首次认购最低金额",
+      "认购起点"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "核实交易动词为认购；合并认购/参与条款可同时建立两字段并共用证据。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "认购业务",
+    "confusable_fields": [
+      "initial_participation_min"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "initial_participation_min",
+    "name": "首次参与或申购最低金额",
+    "category": "金额与投资者资格",
+    "definition": "存续期首次参与或申购的最低金额。",
+    "aliases": [
+      "首次参与金额",
+      "首次参与最低金额",
+      "首次申购金额"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留原文交易词、币种、含费口径，不能由认购值直接推导。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "参与或申购业务",
+    "confusable_fields": [
+      "initial_subscription_min"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "additional_subscription_min",
+    "name": "追加认购最低金额",
+    "category": "金额与投资者资格",
+    "definition": "募集期追加认购的最低金额。",
+    "aliases": [
+      "追加认购金额",
+      "追加认购最低金额"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "明确追加认购适用条件；与递增金额分开。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "追加认购业务",
+    "confusable_fields": [
+      "additional_participation_min",
+      "amount_increment"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "additional_participation_min",
+    "name": "追加参与或申购最低金额",
+    "category": "金额与投资者资格",
+    "definition": "存续期追加参与或申购的最低金额。",
+    "aliases": [
+      "追加参与金额",
+      "追加参与最低金额",
+      "追加申购金额"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "明确追加交易类型，保留币种和含费条件。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "追加参与/申购业务",
+    "confusable_fields": [
+      "additional_subscription_min",
+      "amount_increment"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "amount_increment",
+    "name": "金额递增及级差",
+    "category": "金额与投资者资格",
+    "definition": "允许交易金额的增量单位或不设级差的明确规定。",
+    "aliases": [
+      "递增金额",
+      "金额级差",
+      "不设金额级差",
+      "1万元递增"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "amount": "number|null",
+      "currency": "string|null",
+      "original_unit": "string|null",
+      "normalized_unit": "string|null",
+      "transaction": "认购|申购|参与|未明确",
+      "stage": "首次|追加|未明确",
+      "fee_included": "boolean|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "不把追加最低金额误当金额递增；无级差是明确规则，不是缺失。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确说明时",
+    "confusable_fields": [
+      "additional_participation_min"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "amount_fee_basis",
+    "name": "金额含费口径",
+    "category": "金额与投资者资格",
+    "definition": "投资门槛金额是否包含交易费用。",
+    "aliases": [
+      "不含认购费",
+      "不含参与费",
+      "不含认购/参与费",
+      "含费"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "绑定具体金额字段及交易类型，不泛化到全部金额。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "门槛含费口径明确时",
+    "confusable_fields": [
+      "minimum_subscription_amount",
+      "subscription_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "qualification",
+    "name": "投资者资格",
+    "category": "金额与投资者资格",
+    "definition": "投资者法定资格、类别及产品准入要求。",
+    "aliases": [
+      "合格投资者",
+      "专业投资者",
+      "目标客群"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "法定合格资格与渠道风险承受能力匹配分别存储。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在准入限制时",
+    "confusable_fields": [
+      "suitability"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "subscription_fee",
+    "name": "认购费",
+    "category": "费用",
+    "definition": "募集期认购时收取的费用。",
+    "aliases": [
+      "认购费",
+      "认购费率",
+      "认/申购费",
+      "认购/参与费率"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "复合标签需从值中确认认购适用性；保存份额、金额档位、上下界、固定费与比例费。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "认购业务",
+    "confusable_fields": [
+      "purchase_fee",
+      "participation_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "purchase_fee",
+    "name": "申购费",
+    "category": "费用",
+    "definition": "申购业务费用及前后收费方式。",
+    "aliases": [
+      "申购费",
+      "申购费率",
+      "申购费（前收费）",
+      "认/申购费",
+      "认购/申购费"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "绑定份额、金额区间和收费方式，不能把认购档位复制为申购档位。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "申购业务",
+    "confusable_fields": [
+      "subscription_fee",
+      "participation_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "participation_fee",
+    "name": "参与费",
+    "category": "费用",
+    "definition": "私募资管参与业务收费。",
+    "aliases": [
+      "参与费率",
+      "认购/参与费率",
+      "参与/退出费率",
+      "参与/退出费"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "复合标签分拆交易类型；0%须确认参与适用，不把退出收费并入。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "参与业务",
+    "confusable_fields": [
+      "subscription_fee",
+      "redemption_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "redemption_fee",
+    "name": "退出或赎回费",
+    "category": "费用",
+    "definition": "退出或赎回收费、分档条件和费用归属。",
+    "aliases": [
+      "赎回费",
+      "退出费率",
+      "参与/退出费率",
+      "退出费率（D为持有天数）"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保存持有天数口径、边界、份额类别及归入计划比例；收费期不等于最低持有期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "退出/赎回业务",
+    "confusable_fields": [
+      "minimum_holding_period",
+      "participation_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "management_fee",
+    "name": "管理费",
+    "category": "费用",
+    "definition": "本产品管理人收取的固定管理费用。",
+    "aliases": [
+      "管理费",
+      "管理费率",
+      "固定管理费",
+      "固定管理费/年",
+      "管理、托管费率",
+      "产品费率"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "合并费率中逐项分离费种；年费率、计提基数与税费口径同时保存。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有管理费用时",
+    "confusable_fields": [
+      "trust_management_fee",
+      "advisory_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "custody_fee",
+    "name": "托管或保管费",
+    "category": "费用",
+    "definition": "托管或保管机构收费。",
+    "aliases": [
+      "托管费",
+      "托管费率",
+      "托管费/年",
+      "保管费",
+      "保管费率",
+      "管理、托管费率"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保留托管/保管原称谓、收取人、计提基数与周期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有托管/保管费用时",
+    "confusable_fields": [
+      "management_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "sales_service_fee",
+    "name": "销售服务费",
+    "category": "费用",
+    "definition": "销售服务收费及适用份额或渠道。",
+    "aliases": [
+      "销售服务费",
+      "销售服务费（仅C类）",
+      "C类销售服务费",
+      "固定销售服务费"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保存份额或销售主体限制，不能把C类费用套用于A类。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "收取销售服务费时",
+    "confusable_fields": [
+      "management_fee",
+      "share_classes"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "advisory_fee",
+    "name": "投资顾问费",
+    "category": "费用",
+    "definition": "本产品投资顾问收取的费用。",
+    "aliases": [
+      "投资顾问费",
+      "固定投资顾问费"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保存收费主体；组合管理费总额与拆分分项不能重复加总。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在收费投顾时",
+    "confusable_fields": [
+      "management_fee",
+      "trust_management_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "trust_management_fee",
+    "name": "固定信托管理费",
+    "category": "费用",
+    "definition": "受托信托公司收取的固定信托管理费用。",
+    "aliases": [
+      "信托管理费",
+      "固定信托管理费"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "与浮动信托费用、投顾及销售服务分项区分。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "信托产品",
+    "confusable_fields": [
+      "performance_fee",
+      "advisory_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "other_operating_expenses",
+    "name": "其他运作费用",
+    "category": "费用",
+    "definition": "未归属具体常见费种的运作费用及综合费率表。",
+    "aliases": [
+      "运作费用",
+      "其他费用",
+      "相关费率",
+      "费率结构"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "fee_type": "string",
+          "recipient": "string|null",
+          "share_class": "string|null",
+          "channel": "string|null",
+          "rate": "number|null",
+          "rate_unit": "%/年|%|其他",
+          "fixed_amount": "number|null",
+          "currency": "string|null",
+          "accrual_basis": "string|null",
+          "conditions": [
+            {
+              "metric": "交易金额|持有天数|其他",
+              "lower": "number|null",
+              "upper": "number|null",
+              "lower_inclusive": "boolean|null",
+              "upper_inclusive": "boolean|null",
+              "unit": "string",
+              "day_basis": "自然日|交易日|工作日|未注明"
+            }
+          ],
+          "proceeds_allocation": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "可拆费用分别映射，综合字段保留原表；不凭总费率倒算未知分项。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有其他或综合费用说明时",
+    "confusable_fields": [
+      "management_fee",
+      "custody_fee"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee",
+    "name": "业绩报酬完整条款",
+    "category": "业绩报酬",
+    "definition": "是否收取及完整计提条款。",
+    "aliases": [
+      "业绩报酬",
+      "业绩报酬计提",
+      "业绩报酬计提办法",
+      "浮动服务费",
+      "浮动信托管理费"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "明确不提取也为有效值；保留计提原则、公式、前提、档位、日期和非承诺说明。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有或明确无业绩报酬时",
+    "confusable_fields": [
+      "benchmark",
+      "performance_fee_hurdle"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_hurdle",
+    "name": "业绩报酬门槛",
+    "category": "业绩报酬",
+    "definition": "触发业绩报酬的固定或相对收益门槛。",
+    "aliases": [
+      "业绩报酬计提基准",
+      "业绩报酬计提标准"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保存绝对/相对基准、年化及单复利口径、正收益前提和公告更新要求。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "收取业绩报酬时",
+    "confusable_fields": [
+      "benchmark",
+      "annualized_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_lower_hurdle",
+    "name": "分段门槛下限",
+    "category": "业绩报酬",
+    "definition": "分段计提的第一收益门槛。",
+    "aliases": [
+      "业绩报酬计提基准下限%",
+      "计提基准下限"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "与上限、年化单位、对应分段提成率成组保存；数字3.05在百分数列解释为3.05%。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "分段计提时",
+    "confusable_fields": [
+      "performance_fee_upper_hurdle"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_upper_hurdle",
+    "name": "分段门槛上限",
+    "category": "业绩报酬",
+    "definition": "分段计提的第二收益门槛。",
+    "aliases": [
+      "业绩报酬计提基准上限%",
+      "计提基准上限"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "上限以上是增量收益分段，不把高档比例施加于全部收益。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "分段计提时",
+    "confusable_fields": [
+      "performance_fee_lower_hurdle"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_lower_rate",
+    "name": "区间内超额提成率",
+    "category": "业绩报酬",
+    "definition": "下限与上限之间超额收益的提成比例。",
+    "aliases": [
+      "区间内部计提超额部分比例%",
+      "区间内部提成比例"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "绑定上下限和计提基数，不与门槛收益率混淆。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "分段计提时",
+    "confusable_fields": [
+      "performance_fee_upper_rate"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_upper_rate",
+    "name": "上限以上超额提成率",
+    "category": "业绩报酬",
+    "definition": "高于上限部分的超额收益提成比例。",
+    "aliases": [
+      "超过上限部分计提超额部分比例%",
+      "超过上限提成比例"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留低档累计费用项及增量计提公式。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "分段计提时",
+    "confusable_fields": [
+      "performance_fee_lower_rate"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_hurdle_unit",
+    "name": "业绩报酬基准单位",
+    "category": "业绩报酬",
+    "definition": "基准收益率的时间单位和单复利口径。",
+    "aliases": [
+      "业绩报酬计提基准单位"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留/年、单利等原文，不能把年化门槛用作每期门槛。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "基准有单位说明时",
+    "confusable_fields": [
+      "performance_fee_hurdle"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_accrual_dates",
+    "name": "业绩报酬计提事件",
+    "category": "业绩报酬",
+    "definition": "分红登记、退出、清算等触发计提的事件。",
+    "aliases": [
+      "业绩报酬计提日",
+      "计提时点"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "区分分红日与分红权益登记日等原始事件，不统一改写。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "收取业绩报酬时",
+    "confusable_fields": [
+      "performance_fee_calculation"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_fee_calculation",
+    "name": "业绩报酬计算方法",
+    "category": "业绩报酬",
+    "definition": "计算公式、计提基数、计提区间及份额扣除顺序。",
+    "aliases": [
+      "累计业绩报酬",
+      "单笔计提",
+      "先进先出",
+      "业绩报酬计算"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "enabled": "boolean|null",
+      "thresholds": "array<{value,unit,inclusive,benchmark,annualization}>",
+      "tiers": "array<{lower,upper,lower_inclusive,upper_inclusive,rate_pct,calculation_basis}>",
+      "formula": "string|null",
+      "variables": "object",
+      "positive_return_condition": "string|null",
+      "accrual_events": "array<string>",
+      "ordering_rule": "string|null",
+      "day_count_basis": "string|null",
+      "announcement_override": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "amendment",
+      "announcement",
+      "channel_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保存所有变量、365等日计数基准和分段公式；条件未满足时不外推收费。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有公式或计提原则时",
+    "confusable_fields": [
+      "performance_fee_hurdle",
+      "performance_fee_lower_rate"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "manager_risk_rating",
+    "name": "管理人风险评级",
+    "category": "风险与适当性",
+    "definition": "明确由管理人评定的产品风险等级。",
+    "aliases": [
+      "管理人风险等级",
+      "管理人评级",
+      "管理人将本集合计划的风险评级"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "assessor": "string|null",
+      "assessor_role": "管理人|销售机构|未明确",
+      "code": "string|null",
+      "label": "string|null",
+      "as_of_date": "string|null",
+      "applicability": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "必须有评级主体证据；只有风险等级标签时进入displayed_risk_rating，不默认管理人。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "评级主体明确为管理人",
+    "confusable_fields": [
+      "distributor_risk_rating",
+      "displayed_risk_rating"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "distributor_risk_rating",
+    "name": "渠道风险评级",
+    "category": "风险与适当性",
+    "definition": "明确由销售机构评定的产品风险等级。",
+    "aliases": [
+      "代销机构风险等级",
+      "销售机构风险等级",
+      "渠道评级"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "assessor": "string|null",
+          "assessor_role": "管理人|销售机构|未明确",
+          "code": "string|null",
+          "label": "string|null",
+          "as_of_date": "string|null",
+          "applicability": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "绑定机构、风险编码、描述和版本；只写以代销发布为准不代表已提供渠道等级。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确提供渠道评级时",
+    "confusable_fields": [
+      "manager_risk_rating",
+      "displayed_risk_rating"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "displayed_risk_rating",
+    "name": "物料原始展示评级",
+    "category": "风险与适当性",
+    "definition": "物料显示但暂未明确发布主体的评级。",
+    "aliases": [
+      "风险等级",
+      "产品风险等级",
+      "产品评级"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "assessor": "string|null",
+      "assessor_role": "管理人|销售机构|未明确",
+      "code": "string|null",
+      "label": "string|null",
+      "as_of_date": "string|null",
+      "applicability": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "原文保存并标记主体未明；后有明确主体证据才映射管理人或渠道字段。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "评级主体缺失或合并展示时",
+    "confusable_fields": [
+      "manager_risk_rating",
+      "distributor_risk_rating"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "suitability",
+    "name": "风险适当性范围",
+    "category": "风险与适当性",
+    "definition": "适合购买的客户风险承受能力等级及匹配条件。",
+    "aliases": [
+      "风险承受能力",
+      "适合客户",
+      "适当性"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "assessor": "string|null",
+      "investor_classes": "array<string>",
+      "risk_codes": "array<string>",
+      "risk_labels": "array<string>",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留C或A等原编码和机构，不擅自跨渠道换码。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "存在适当性说明时",
+    "confusable_fields": [
+      "qualification",
+      "distributor_risk_rating"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "risk_return_profile",
+    "name": "风险收益特征",
+    "category": "风险与适当性",
+    "definition": "产品相对其他类别的风险收益特征及特有风险。",
+    "aliases": [
+      "风险收益特征"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "与机构评级分开；高于或低于关系保留完整比较对象。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "明确给出时",
+    "confusable_fields": [
+      "manager_risk_rating",
+      "risk_disclosures"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "warning_line",
+    "name": "预警线",
+    "category": "风险与适当性",
+    "definition": "触发预警措施的阈值与对应指标。",
+    "aliases": [
+      "预警线",
+      "预警/止损机制",
+      "预警线与止损线"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "metric": "string|null",
+      "unit": "string|null",
+      "trigger_conditions": "array<string>",
+      "actions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保存单位净值等阈值基准及触发动作，不能混为止损线。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "设置预警时",
+    "confusable_fields": [
+      "stop_loss_line"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "stop_loss_line",
+    "name": "止损线",
+    "category": "风险与适当性",
+    "definition": "触发止损或其他约定处置的阈值。",
+    "aliases": [
+      "止损线",
+      "预警/止损机制",
+      "预警线与止损线"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "metric": "string|null",
+      "unit": "string|null",
+      "trigger_conditions": "array<string>",
+      "actions": "array<string>"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "保留指标、阈值和条件化处置，不保证能按阈值成交。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "设置止损时",
+    "confusable_fields": [
+      "warning_line"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "risk_disclosures",
+    "name": "风险揭示及免责",
+    "category": "风险与适当性",
+    "definition": "产品及渠道适用的风险提示和责任说明。",
+    "aliases": [
+      "风险揭示",
+      "特别揭示",
+      "风险提示",
+      "不承担投资和兑付责任"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "contract",
+      "prospectus",
+      "amendment",
+      "channel_material",
+      "marketing_material",
+      "operations_calendar"
+    ],
+    "extraction_rule": "合同风险与渠道专属责任声明分别标注来源及主体，不由模板擅改责任。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有面向销售的材料",
+    "confusable_fields": [
+      "risk_return_profile",
+      "material_audience"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "channel_name",
+    "name": "渠道名称",
+    "category": "渠道运营",
+    "definition": "运营资料标识的销售渠道。",
+    "aliases": [
+      "渠道名称",
+      "渠道"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "与正文销售机构证据分别保存，历史渠道样本不是通用销售授权。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "渠道运营材料",
+    "confusable_fields": [
+      "distributor"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "channel_code",
+    "name": "渠道代码",
+    "category": "渠道运营",
+    "definition": "运营系统渠道标识。",
+    "aliases": [
+      "渠道代码"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保留005等前导零；不与产品代码混同。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "渠道运营材料",
+    "confusable_fields": [
+      "product_code"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "marketing_stage",
+    "name": "营销阶段",
+    "category": "渠道运营",
+    "definition": "该档期为首发募集、持营开放等业务阶段。",
+    "aliases": [
+      "营销阶段",
+      "首发募集",
+      "持营开放"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保存原始枚举并绑定具体产品和档期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "渠道运营材料",
+    "confusable_fields": [
+      "operation_mode"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "sales_period_start",
+    "name": "档期开始日期",
+    "category": "渠道运营",
+    "definition": "某营销或开放档期的开始日期。",
+    "aliases": [
+      "档期起始日期",
+      "档期开始日期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "raw_value": "string|number",
+      "normalized_date": "YYYY-MM-DD|null",
+      "date_status": "实际|预计|未明确",
+      "calendar_system": "1900|1904|其他|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "按工作簿日期系统读取序列日期；保留原数值、显示格式和阶段，空白不补。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "具体档期",
+    "confusable_fields": [
+      "inception_date",
+      "current_open_date"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "sales_period_end",
+    "name": "档期结束日期",
+    "category": "渠道运营",
+    "definition": "某营销或开放档期的结束日期。",
+    "aliases": [
+      "档期结束日期",
+      "档期截止日期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "raw_value": "string|number",
+      "normalized_date": "YYYY-MM-DD|null",
+      "date_status": "实际|预计|未明确",
+      "calendar_system": "1900|1904|其他|null",
+      "conditions": "array<string>"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "保留对应备注；预约截止日不能替代产品到期日。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "具体档期",
+    "confusable_fields": [
+      "duration",
+      "current_open_date"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "sales_period_start_note",
+    "name": "档期开始备注",
+    "category": "渠道运营",
+    "definition": "档期开始边界的运营补充说明。",
+    "aliases": [
+      "档期起始备注"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "原文保存，空白表示未填，不推断无特殊安排。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "具体档期",
+    "confusable_fields": [
+      "sales_period_start"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "sales_period_end_note",
+    "name": "档期结束备注",
+    "category": "渠道运营",
+    "definition": "档期结束边界及预约、参与/退出安排说明。",
+    "aliases": [
+      "档期结束备注"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "特别保留家族端预约截止及不同开放日业务范围。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "具体档期",
+    "confusable_fields": [
+      "sales_period_end",
+      "redemption_window"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "lockup_description",
+    "name": "运营锁定期原文",
+    "category": "渠道运营",
+    "definition": "运营表对锁定/周期的简写，可能不能确定逐笔或产品层面。",
+    "aliases": [
+      "锁定期"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "number|null",
+      "unit": "年|月|日|其他",
+      "day_basis": "自然日|交易日|工作日|未注明",
+      "start_event": "string|null",
+      "end_event": "string|null",
+      "inclusive_bounds": "object",
+      "applicability": "string",
+      "conditions": "array<string>",
+      "exceptions": "array<string>"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "每18个月等原文先保存，待合同确认后才映射duration或minimum_holding_period。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "运营表或语义未明标签",
+    "confusable_fields": [
+      "minimum_holding_period",
+      "initial_lockup",
+      "opening_schedule"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "open_day_note",
+    "name": "开放日备注",
+    "category": "渠道运营",
+    "definition": "运营资料关于成立日、家族款、开放安排等补充信息。",
+    "aliases": [
+      "开放日备注"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "按备注自身内容解释，不因列名将所有备注认定开放日。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "运营日历",
+    "confusable_fields": [
+      "inception_date",
+      "current_open_date"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "remarks",
+    "name": "其他运营备注",
+    "category": "渠道运营",
+    "definition": "未能归入其他字段但与产品运营相关的说明。",
+    "aliases": [
+      "备注",
+      "说明"
+    ],
+    "data_type": "string",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "normalized_value": "string|null"
+    },
+    "source_types": [
+      "operations_calendar",
+      "announcement",
+      "channel_material"
+    ],
+    "extraction_rule": "与所属产品、行和版本绑定；示例数据标记不得当正式发行安排。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "verbatim",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有运营备注时",
+    "confusable_fields": [
+      "open_day_note"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "nav",
+    "name": "产品净值",
+    "category": "非合同展示",
+    "definition": "特定产品、份额与日期的单位或累计净值。",
+    "aliases": [
+      "最新净值",
+      "单位净值",
+      "累计净值"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "标明净值类型、日期和份额；不能由历史收益倒算未给净值。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩展示",
+    "confusable_fields": [
+      "cumulative_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "cumulative_return",
+    "name": "累计或区间收益率",
+    "category": "非合同展示",
+    "definition": "明确区间的产品或份额收益率。",
+    "aliases": [
+      "累计收益率",
+      "成立以来收益率",
+      "区间收益率",
+      "成立以来收益"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "记录主体、起止日期、份额、费前费后及数据来源。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩展示",
+    "confusable_fields": [
+      "annualized_return",
+      "excess_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "annualized_return",
+    "name": "年化收益率",
+    "category": "非合同展示",
+    "definition": "由明确区间收益按指定口径年化的结果。",
+    "aliases": [
+      "年化收益率",
+      "成立以来年化收益",
+      "年化收益"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "必须带计算区间和方法；不能将业绩报酬门槛作为历史收益。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩展示",
+    "confusable_fields": [
+      "performance_fee_hurdle",
+      "cumulative_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "max_drawdown",
+    "name": "最大回撤",
+    "category": "非合同展示",
+    "definition": "指定区间和采样频率的最大回撤。",
+    "aliases": [
+      "最大回撤",
+      "周度最大回撤"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "保存日/周频率、区间及对象，跨频率不直接比较。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "风险业绩展示",
+    "confusable_fields": [
+      "volatility"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "volatility",
+    "name": "波动率",
+    "category": "非合同展示",
+    "definition": "指定频率和区间计算的收益波动指标。",
+    "aliases": [
+      "波动率",
+      "年化波动率"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "记录频率、年化方式和区间，不以回撤代替波动。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "风险业绩展示",
+    "confusable_fields": [
+      "max_drawdown"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "excess_return",
+    "name": "超额收益",
+    "category": "非合同展示",
+    "definition": "相对指定基准的超额表现。",
+    "aliases": [
+      "超额收益",
+      "成立以来相对基准超额收益",
+      "年化超额收益"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "保留基准、差额/比值算法、区间和年化方式；超额为正不意味着绝对收益为正。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩展示",
+    "confusable_fields": [
+      "benchmark",
+      "cumulative_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "rank",
+    "name": "排名",
+    "category": "非合同展示",
+    "definition": "特定分类、区间、样本范围中的排序结果。",
+    "aliases": [
+      "排名",
+      "同类排名",
+      "收益排名"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "分子、分母、分类、机构、区间和并列规则共同保存。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "排名展示",
+    "confusable_fields": [
+      "cumulative_return"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "peer_performance",
+    "name": "同类或同策略产品表现",
+    "category": "非合同展示",
+    "definition": "其他产品的历史表现或对照样本表。",
+    "aliases": [
+      "同类产品表现",
+      "同策略系列产品",
+      "代表性基金样本"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "保留被展示产品身份，不得把同策略其他产品业绩归给本产品。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "比较展示",
+    "confusable_fields": [
+      "cumulative_return",
+      "product_name"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "product_highlights",
+    "name": "产品亮点",
+    "category": "非合同展示",
+    "definition": "材料对产品特点的概括性描述。",
+    "aliases": [
+      "产品亮点",
+      "产品特色",
+      "核心优势"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "仅引用有来源且与合同一致的卖点；与法律条款分层，摘要不能添加收益保证。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "营销展示",
+    "confusable_fields": [
+      "investment_objective",
+      "investment_strategy"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "manager_profile",
+    "name": "经理履历与团队",
+    "category": "非合同展示",
+    "definition": "经理与团队的任职经历、年限和照片等展示资料。",
+    "aliases": [
+      "投研经历",
+      "投资经历",
+      "基金经理介绍",
+      "团队介绍"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "按资料截至日与人员绑定；同日版本年限冲突需核实，不当作渠道规则。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "经理展示",
+    "confusable_fields": [
+      "portfolio_manager",
+      "company_profile"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "company_profile",
+    "name": "公司介绍",
+    "category": "非合同展示",
+    "definition": "机构历史、组织、能力等展示信息。",
+    "aliases": [
+      "公司介绍",
+      "管理人实力",
+      "公司实力"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "保留数据日期，法人管理角色与宣传介绍不能互相替代。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "公司展示",
+    "confusable_fields": [
+      "manager",
+      "aum"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "awards",
+    "name": "机构及产品奖项",
+    "category": "非合同展示",
+    "definition": "产品、机构或人员获得的奖项记录。",
+    "aliases": [
+      "金牛奖",
+      "获奖情况",
+      "奖项"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "奖项主体、名称、颁奖机构和颁奖时间共同保存。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "奖项展示",
+    "confusable_fields": [
+      "company_profile"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "aum",
+    "name": "管理规模",
+    "category": "非合同展示",
+    "definition": "机构、团队或产品的管理资产规模。",
+    "aliases": [
+      "资管规模",
+      "管理规模",
+      "资产管理规模"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": [
+        {
+          "subject_product": "string",
+          "share_class": "string|null",
+          "metric": "string",
+          "value": "number|string|null",
+          "unit": "string|null",
+          "period_start": "date|null",
+          "period_end": "date|null",
+          "frequency": "string|null",
+          "calculation_method": "string|null",
+          "fee_basis": "string|null",
+          "data_source": "string|null",
+          "verification": "string|null"
+        }
+      ]
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "记录统计主体、币种、单位、日期及合并范围。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "规模展示",
+    "confusable_fields": [
+      "company_profile"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "as_of_date",
+    "name": "数据截止日",
+    "category": "非合同展示",
+    "definition": "展示数据有效的截止日期。",
+    "aliases": [
+      "截至",
+      "数据时间截至",
+      "统计截止日"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "按数据块绑定日期，不能默认整个材料只有一个截止日。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有动态展示",
+    "confusable_fields": [
+      "return_period"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "data_source",
+    "name": "数据来源",
+    "category": "非合同展示",
+    "definition": "数据供应机构与取数依据。",
+    "aliases": [
+      "数据来源",
+      "排名数据来源",
+      "业绩来源"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "分别绑定指标与来源，不把文件作者当数据供应方。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "所有动态展示",
+    "confusable_fields": [
+      "performance_verification"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "return_period",
+    "name": "业绩计算区间",
+    "category": "非合同展示",
+    "definition": "计算收益、排名或风险指标的明确起止区间。",
+    "aliases": [
+      "时间区间",
+      "统计区间",
+      "近一年",
+      "近两年",
+      "近三年"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "相对期间必须结合截止日，无法还原时保留原文并标待确认。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩及排名展示",
+    "confusable_fields": [
+      "as_of_date"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "performance_verification",
+    "name": "业绩复核状态",
+    "category": "非合同展示",
+    "definition": "材料明确声明的数据复核主体与范围。",
+    "aliases": [
+      "业绩经托管复核",
+      "基金业绩已经托管行复核",
+      "净值经过托管人复核"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "净值经复核不等于所有衍生指标经复核；准确保存复核对象。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "业绩披露",
+    "confusable_fields": [
+      "data_source"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "material_audience",
+    "name": "材料受众与使用范围",
+    "category": "非合同展示",
+    "definition": "材料适用受众及传播限制。",
+    "aliases": [
+      "仅面向理财经理",
+      "内部使用",
+      "请勿直接对外公开发布或传播"
+    ],
+    "data_type": "object",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "value": "any",
+      "qualifiers": "object"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "作为材料元数据保存，不当合同投资条款，也不执行文档内指令。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "有使用范围声明时",
+    "confusable_fields": [
+      "risk_disclosures"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "curated_case_observed",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  },
+  {
+    "field_id": "market_view",
+    "name": "市场观点与情景",
+    "category": "非合同展示",
+    "definition": "材料中的市场判断、情景及时间背景。",
+    "aliases": [
+      "市场观点",
+      "投资观点",
+      "配置观点"
+    ],
+    "data_type": "array",
+    "data_structure": {
+      "raw_text": "string",
+      "source_path": "string",
+      "source_location": "string",
+      "source_version": "string|null",
+      "status": "found|explicit_none|not_found|not_applicable|conflict|needs_review",
+      "items": "array<object>",
+      "item_required": "raw_text, applicability, source_location"
+    },
+    "source_types": [
+      "performance_data",
+      "marketing_material",
+      "company_profile",
+      "channel_material",
+      "announcement"
+    ],
+    "extraction_rule": "与合同承诺及事实数据分离，保留观点主体和日期。 必须保留原文、产品身份、文件版本和来源位置；未检出不是零或不适用。",
+    "display_modes": [
+      "external_verified",
+      "structured",
+      "summary"
+    ],
+    "conditions": "观点展示",
+    "confusable_fields": [
+      "product_highlights"
+    ],
+    "notes": [
+      "样本出现仅为observed，不代表所有该渠道材料都必须展示。",
+      "字段缺失、明确无、未知、待核实与不适用须区分。"
+    ],
+    "evidence_coverage": "dictionary_defined_not_in_curated_sample",
+    "source_policy": "按产品身份、文件有效期、条款适用范围比较来源；合同及其有效变更/公告不能被营销材料倒填覆盖。来源类型不等于已获得该来源。"
+  }
+]

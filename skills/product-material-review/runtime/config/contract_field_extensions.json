@@ -1,0 +1,18 @@
+[
+  {"field_id":"dividend_policy","name":"收益分配与分红","aliases":["收益分配","投资收益与分配","分配原则","分红","可供分配利润"],"section_patterns":["投资收益与分配","收益分配","分红"],"conditions":"收益条件、分配方式、份额类别、频率、权益登记日及除息日"},
+  {"field_id":"redemption_payment","name":"退出确认与款项支付","aliases":["退出款项","赎回款项","退出资金","赎回资金","退出申请的确认","支付期限","支付退出款"],"section_patterns":["退出.*支付","退出申请的确认","退出款项"],"conditions":"正常支付与延期支付、T日定义、工作日口径及巨额情形"},
+  {"field_id":"large_redemption","name":"巨额退出及流动性措施","aliases":["巨额退出","巨额赎回","连续巨额","大额退出"],"section_patterns":["巨额退出","巨额赎回"],"conditions":"分母、阈值、连续日数、办理比例、顺延与暂停及通知"},
+  {"field_id":"investment_build_period","name":"建仓期","aliases":["建仓期","建仓期限"],"section_patterns":["建仓"],"conditions":"起算日、期限及建仓期内外投向和比例适用范围"},
+  {"field_id":"fx_valuation","name":"汇率与外币估值","aliases":["汇率","外币折算","估值货币","汇兑"],"section_patterns":["汇率","外币折算"],"conditions":"估值日、汇率来源、替代来源及币种"},
+  {"field_id":"termination_liquidation","name":"终止与清算","aliases":["终止","清算","提前结束"],"section_patterns":["终止","清算"],"conditions":"触发条件、管理人权限、通知、清算顺序、期限及费用"},
+  {"field_id":"fee_exemptions","name":"费用减免及豁免","aliases":["免收","豁免","减免","费用减免","不收取","不予收取"],"section_patterns":["费用减免","豁免"],"conditions":"触发条件、费用对象、份额类别、阶段及例外"},
+  {"field_id":"valuation_policy","name":"估值原则及差错处理","aliases":["估值方法","估值原则","估值错误","估值差错","暂停估值"],"section_patterns":["估值和会计核算","估值原则","估值方法"],"conditions":"估值对象、方法、频率、公允价值调整及暂停与差错处理"},
+  {"field_id":"reporting_disclosure","name":"信息披露与报告","aliases":["信息披露","定期报告","临时报告","披露方式"],"section_patterns":["信息披露","报告"],"conditions":"接收人、方式、期限和触发事项"},
+  {"field_id":"contract_amendment","name":"合同变更","aliases":["合同变更","合同的变更","变更本合同"],"section_patterns":["合同的变更"],"conditions":"同意机制、通知、反对退出与生效日"},
+  {"field_id":"subscription_confirmation","name":"认购参与确认","aliases":["参与申请的确认","认购确认","申购确认","参与确认日期"],"section_patterns":["申请的确认"],"conditions":"T日、确认日、查询日、失败与退款"},
+  {"field_id":"registration_record","name":"成立与备案","aliases":["成立与备案","成立条件","备案手续","完成备案"],"section_patterns":["成立与备案"],"conditions":"成立条件、备案期限、备案失败、退款与清算"},
+  {"field_id":"investor_rights","name":"投资者权利义务","aliases":["投资者的权利","投资者的义务","份额持有人权利"],"section_patterns":["当事人及权利义务","持有人大会"],"conditions":"权利主体、行使条件、义务及责任边界"},
+  {"field_id":"related_transactions","name":"关联交易与利益冲突","aliases":["关联交易","利益冲突"],"section_patterns":["利益冲突","关联交易"],"conditions":"交易主体、同意方式、披露及禁止事项"},
+  {"field_id":"dispute_resolution","name":"争议解决","aliases":["争议处理","争议解决","仲裁","管辖法院"],"section_patterns":["争议处理","争议解决"],"conditions":"法律适用、仲裁或诉讼及地点"},
+  {"field_id":"contract_effectiveness","name":"合同成立与生效","aliases":["合同的成立与生效","合同生效","合同成立"],"section_patterns":["合同的成立与生效"],"conditions":"签署与生效条件、效力范围"}
+]

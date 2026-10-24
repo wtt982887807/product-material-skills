@@ -1,0 +1,423 @@
+{
+  "contract": "inputs/contract.docx",
+  "fields": [
+    {
+      "capture": "名称：(.+?)[。]?$",
+      "chapter": "集合计划的基本情况",
+      "field_id": "product_name",
+      "match": "^一、名称：",
+      "name": "产品名称",
+      "parser": "scalar"
+    },
+    {
+      "capture": "管理人名称：(.+)$",
+      "chapter": "当事人及权利义务",
+      "field_id": "manager",
+      "match": "^管理人名称：",
+      "name": "管理人",
+      "parser": "scalar"
+    },
+    {
+      "capture": "托管人名称：(.+)$",
+      "chapter": "当事人及权利义务",
+      "field_id": "custodian",
+      "match": "^托管人名称：",
+      "name": "托管人",
+      "parser": "scalar"
+    },
+    {
+      "capture": "类型：(.+?)[。]?$",
+      "chapter": "集合计划的基本情况",
+      "field_id": "product_type",
+      "match": "^二、类型：",
+      "name": "产品类型",
+      "parser": "scalar"
+    },
+    {
+      "chapter": "集合计划的投资",
+      "field_id": "investment_scope",
+      "name": "投资范围",
+      "parser": "clauses",
+      "start": "^二、投资范围",
+      "stop": "^三、投资策略"
+    },
+    {
+      "chapter": "集合计划的投资",
+      "field_id": "investment_ratios",
+      "name": "投资比例",
+      "parser": "ratios",
+      "start": "^四、投资比例",
+      "stop": "^五、投资比例超限"
+    },
+    {
+      "chapter": "集合计划的投资",
+      "field_id": "investment_restrictions",
+      "name": "投资限制",
+      "parser": "restrictions",
+      "section_path_suffix": [
+        "六、投资限制及禁止行为",
+        "（一）投资限制"
+      ],
+      "start": "^（一）投资限制$",
+      "stop": "^（二）禁止行为$"
+    },
+    {
+      "chapter": "集合计划的投资",
+      "field_id": "investment_strategy",
+      "name": "投资策略",
+      "parser": "strategy",
+      "section_path_suffix": [
+        "三、投资策略",
+        "（三）投资管理的方法和标准"
+      ],
+      "start": "^（三）投资管理的方法和标准$",
+      "stop": "^四、投资比例$"
+    },
+    {
+      "chapter": "集合计划的基本情况",
+      "field_id": "duration",
+      "match": "^本集合计划存续期限为",
+      "name": "存续期限",
+      "parser": "duration"
+    },
+    {
+      "chapter": "集合计划的基本情况",
+      "field_id": "opening_schedule",
+      "include_start": true,
+      "name": "开放安排",
+      "parser": "opening",
+      "start": "^2、开放期：",
+      "stop": "^五、目标规模$"
+    },
+    {
+      "capture": "初始净认购金额不低于([0-9.]+)(万|亿)?元",
+      "chapter": "资产管理计划的募集",
+      "fee_excluded": true,
+      "field_id": "initial_subscription_min",
+      "kind": "首次",
+      "match": "^认购资金应以现金形式交付",
+      "name": "首次认购最低金额",
+      "parser": "money",
+      "stage": "认购"
+    },
+    {
+      "capture": "追加认购的最低金额为人民币([0-9.]+)(万|亿)?元",
+      "chapter": "资产管理计划的募集",
+      "fee_excluded": null,
+      "field_id": "additional_subscription_min",
+      "kind": "追加",
+      "match": "^认购资金应以现金形式交付",
+      "name": "追加认购最低金额",
+      "parser": "money",
+      "stage": "认购"
+    },
+    {
+      "capture": "首次参与最低金额为([0-9.]+)(万|亿)?元",
+      "chapter": "资产管理计划的参与、退出和转让",
+      "fee_excluded": true,
+      "field_id": "initial_participation_min",
+      "kind": "首次",
+      "match": "金额参与.*首次参与最低金额",
+      "name": "首次参与最低金额",
+      "parser": "money",
+      "stage": "参与"
+    },
+    {
+      "capture": "追加参与的最低金额为人民币([0-9.]+)(万|亿)?元",
+      "chapter": "资产管理计划的参与、退出和转让",
+      "fee_excluded": null,
+      "field_id": "additional_participation_min",
+      "kind": "追加",
+      "match": "金额参与.*首次参与最低金额",
+      "name": "追加参与最低金额",
+      "parser": "money",
+      "stage": "参与"
+    },
+    {
+      "annual": false,
+      "capture": "认购费率为[：:]?([0-9.]+)%",
+      "chapter": "资产管理计划的募集",
+      "field_id": "subscription_fee",
+      "match": "本集合计划认购费率为",
+      "name": "认购费率",
+      "parser": "percentage",
+      "stage": "认购"
+    },
+    {
+      "annual": false,
+      "capture": "参与费率[：:]([0-9.]+)%",
+      "chapter": "资产管理计划的参与、退出和转让",
+      "field_id": "participation_fee",
+      "match": "^[0-9]+、参与费率：",
+      "name": "参与费率",
+      "parser": "percentage",
+      "stage": "参与"
+    },
+    {
+      "chapter": "资产管理计划的参与、退出和转让",
+      "field_id": "redemption_fee",
+      "name": "退出费率",
+      "parser": "redemption",
+      "start": "^退出费率如下表所示",
+      "stop": "^2、退出金额的计算方法"
+    },
+    {
+      "annual": true,
+      "capture": "年固定管理费率为([0-9.]+)%",
+      "chapter": "集合计划的费用、业绩报酬",
+      "field_id": "management_fee",
+      "include_start": true,
+      "name": "固定管理费率",
+      "parser": "percentage",
+      "stage": "管理",
+      "start": "^本集合计划应给付管理人固定管理费",
+      "stop": "^管理费收费账户信息"
+    },
+    {
+      "annual": true,
+      "capture": "年托管费率为([0-9.]+)%",
+      "chapter": "集合计划的费用、业绩报酬",
+      "field_id": "custody_fee",
+      "include_start": true,
+      "name": "托管费率",
+      "parser": "percentage",
+      "stage": "托管",
+      "start": "^本集合计划应给付托管人托管费",
+      "stop": "^托管费收费账户信息"
+    },
+    {
+      "chapter": "集合计划的费用、业绩报酬",
+      "field_id": "performance_fee",
+      "match": "^本集合计划不提取业绩报酬",
+      "name": "业绩报酬",
+      "parser": "performance"
+    },
+    {
+      "chapter": "集合计划的投资",
+      "field_id": "manager_risk_rating",
+      "name": "管理人风险评级及适当性",
+      "parser": "risk",
+      "start": "^七、风险收益特征$",
+      "stop": "^八、业绩比较基准"
+    }
+  ],
+  "profile_id": "qdii25_contract_rules",
+  "strategy_display": {
+    "exclude_title_pattern": "发生情形和条件",
+    "reason": "展示是否仅保留主策略标题，须按本次目标物料逐项核对；特殊情形仍完整保留于合同底稿。此规则不授权删除合同条款。"
+  },
+  "target": "inputs/factsheet.docx",
+  "target_table": {
+    "minimum_rows": 12,
+    "required_labels": [
+      "产品名称",
+      "投资策略",
+      "业绩报酬"
+    ]
+  },
+  "targets": [
+    {
+      "aliases": [
+        "产品名称"
+      ],
+      "fact_ids": [
+        "product_name"
+      ],
+      "field_id": "product_name",
+      "mode": "scalar",
+      "name": "产品名称"
+    },
+    {
+      "aliases": [
+        "管理人"
+      ],
+      "fact_ids": [
+        "manager"
+      ],
+      "field_id": "manager",
+      "mode": "scalar",
+      "name": "管理人"
+    },
+    {
+      "aliases": [
+        "托管人"
+      ],
+      "fact_ids": [
+        "custodian"
+      ],
+      "field_id": "custodian",
+      "mode": "scalar",
+      "name": "托管人"
+    },
+    {
+      "aliases": [
+        "产品类型"
+      ],
+      "fact_ids": [
+        "product_type"
+      ],
+      "field_id": "product_type",
+      "mode": "scalar",
+      "name": "产品类型"
+    },
+    {
+      "aliases": [
+        "投资范围"
+      ],
+      "fact_ids": [
+        "investment_scope"
+      ],
+      "field_id": "investment_scope",
+      "mode": "clauses",
+      "name": "投资范围"
+    },
+    {
+      "aliases": [
+        "投资比例"
+      ],
+      "fact_ids": [
+        "investment_ratios"
+      ],
+      "field_id": "investment_ratios",
+      "mode": "clauses",
+      "name": "投资比例"
+    },
+    {
+      "aliases": [
+        "投资限制"
+      ],
+      "fact_ids": [
+        "investment_restrictions"
+      ],
+      "field_id": "investment_restrictions",
+      "mode": "clauses",
+      "name": "投资限制"
+    },
+    {
+      "aliases": [
+        "投资策略"
+      ],
+      "fact_ids": [
+        "investment_strategy"
+      ],
+      "field_id": "investment_strategy",
+      "mode": "strategy",
+      "name": "投资策略"
+    },
+    {
+      "aliases": [
+        "存续期"
+      ],
+      "fact_ids": [
+        "duration"
+      ],
+      "field_id": "duration",
+      "mode": "duration",
+      "name": "存续期"
+    },
+    {
+      "aliases": [
+        "开放期"
+      ],
+      "fact_ids": [
+        "opening_schedule"
+      ],
+      "field_id": "opening_schedule",
+      "mode": "opening",
+      "name": "开放期",
+      "support_note": "须在本次合同逐句核对开放安排及调整权限；跨条款依据不能自动授权扩大调整范围，具体档期需本次有效依据。",
+      "support_rules": [
+        {
+          "chapter": "资产管理计划的参与、退出和转让",
+          "match": "管理人有权视情况对前述.*日期及时间进行相应的调整并公告"
+        }
+      ]
+    },
+    {
+      "aliases": [
+        "参与金额"
+      ],
+      "fact_ids": [
+        "initial_participation_min",
+        "additional_participation_min",
+        "initial_subscription_min",
+        "additional_subscription_min"
+      ],
+      "field_id": "minimum_subscription_amount",
+      "mode": "money",
+      "name": "参与金额"
+    },
+    {
+      "aliases": [
+        "认购/参与费率"
+      ],
+      "fact_ids": [
+        "subscription_fee",
+        "participation_fee"
+      ],
+      "field_id": "subscription_participation_fee",
+      "mode": "fees",
+      "name": "认购/参与费率"
+    },
+    {
+      "aliases": [
+        "退出费率"
+      ],
+      "fact_ids": [
+        "redemption_fee"
+      ],
+      "field_id": "redemption_fee",
+      "mode": "redemption",
+      "name": "退出费率"
+    },
+    {
+      "aliases": [
+        "管理、托管",
+        "管理托管"
+      ],
+      "fact_ids": [
+        "management_fee",
+        "custody_fee"
+      ],
+      "field_id": "management_custody_fee",
+      "mode": "fees",
+      "name": "管理、托管费率"
+    },
+    {
+      "aliases": [
+        "业绩报酬"
+      ],
+      "fact_ids": [
+        "performance_fee"
+      ],
+      "field_id": "performance_fee",
+      "mode": "scalar",
+      "name": "业绩报酬"
+    },
+    {
+      "aliases": [
+        "风险等级"
+      ],
+      "fact_ids": [
+        "manager_risk_rating"
+      ],
+      "field_id": "manager_risk_rating",
+      "mode": "risk",
+      "name": "风险等级",
+      "support_note": "管理人风险评级、销售机构评级与渠道披露规则应分别核实；一般保留条款不能自动替代渠道依据。",
+      "support_rules": [
+        {
+          "chapter": "集合计划的投资",
+          "match": "风险评级.*销售机构另有规定"
+        }
+      ]
+    }
+  ],
+  "version": "1.1",
+  "wording_aliases": [
+    [
+      "本集合资管计划",
+      "本集合计划"
+    ]
+  ]
+}
