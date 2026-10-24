@@ -1,0 +1,4 @@
+interface:
+  display_name: "产品要素审阅与更新"
+  short_description: "按合同审阅 Word 与 PPT 产品要素，保留修订并交付要素页"
+  default_prompt: "使用 $product-material-review，根据我提供的合同审阅并更新物料，列出需要补充的信息，Word 保留修订与批注，PPT 只交付目标产品要素页。"
