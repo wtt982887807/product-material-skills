@@ -8,6 +8,7 @@ identities and conflicting/combined identities fail closed for editing.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from functools import lru_cache
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -31,6 +32,35 @@ NAME_LABELS = {"产品名称", "产品全称", "信托名称", "信托计划名�
 SUFFIX = r"(?:集合资金信托计划|集合资产信托计划|集合资产管理计划|单一资产管理计划|资产管理信托|证券投资基金|集合信托计划)"
 NUMBER = re.compile(r"([0-9０-９]+|[一二三四五六七八九十百零〇]+|[XYZxyz])\s*(号|期)")
 CONTINUED = re.compile(r"(?:续表|接上页|续页|[（(]续[）)]|要素.*续|条款.*续)")
+
+
+@lru_cache(maxsize=1)
+def _ppt_rules():
+    # Direct importlib loaders do not necessarily put this directory on sys.path.
+    try:
+        import ppt_delivery
+        return ppt_delivery
+    except ModuleNotFoundError:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_material_ppt_delivery", Path(__file__).with_name("ppt_delivery.py"))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+
+def _same_table_layout(left, right):
+    """Require aligned horizontal frames and compatible relative column widths.
+
+    Height and vertical position may vary as an element table flows to a new
+    slide. Mere adjacency or equal column count is not enough for silent reuse.
+    """
+    a, b = left.get("bounds"), right.get("bounds")
+    ag, bg = left.get("table_grid_widths", []), right.get("table_grid_widths", [])
+    if not a or not b or len(ag) < 2 or len(ag) != len(bg) or min(*ag, *bg) <= 0:
+        return False
+    tolerance = max(a["width"], b["width"]) * .02
+    return (abs(a["x"] - b["x"]) <= tolerance and abs(a["width"] - b["width"]) <= tolerance
+            and all(abs(x / sum(ag) - y / sum(bg)) <= .02 for x, y in zip(ag, bg)))
 
 
 def _normalize(text):
@@ -323,6 +353,8 @@ class _Analyzer:
         grid = table.findall(f"{pre}:tblGrid/{pre}:gridCol", NS)
         columns = len(grid) or max((len(r.findall(f"{pre}:tc", NS)) for r in table.findall(f"{pre}:tr", NS)), default=0)
         location = {**location, "table_columns": columns}
+        if not word:
+            location["table_grid_widths"] = [int(c.get("w", "0")) for c in grid]
         rows = self.cells(table, location, word)
         heading = title["text"] if title else ""
         title_names = title.get("names", []) if title else []
@@ -348,21 +380,59 @@ class _Analyzer:
             if pairs:
                 anchors.append((index, pairs))
         table_regions = []
+        table_fields = {cell["field"] for row in rows for cell in row["cells"] if cell["field"]}
+        rules = _ppt_rules() if not word else None
         if not anchors:
             inherited = []
+            continuation = None
             names, reason = title_names, "same_page_local_title" if title_names else "no_local_product_identity"
             if title and title.get("explicit_identity") and not names:
                 reason = "explicit_product_name_missing"
-            if not names and reason != "explicit_product_name_missing" and CONTINUED.search(heading) and previous:
-                eligible = [r for r in previous if r["status"] != "ambiguous" and r["locations"][0].get("table_columns") == columns]
+            if (not names and reason != "explicit_product_name_missing" and CONTINUED.search(heading)
+                    and (previous or not word)):
+                preceding = previous or []
+                eligible = [r for r in preceding if r["status"] != "ambiguous" and r["locations"][0].get("table_columns") == columns]
                 unique = {tuple(r["product_names"]) for r in eligible}
-                if len(previous) == len(eligible) and len(unique) == 1:
+                if len(preceding) == len(eligible) and len(unique) == 1:
                     names = eligible[0]["product_names"]
                     inherited = [{"region_id": r["region_id"], "location": r["locations"][0], "method": "explicit_adjacent_continuation"} for r in eligible]
                     reason = "explicit_adjacent_continuation"
                 else:
                     reason = "continuation_has_multiple_or_ambiguous_predecessors"
+                if not word:
+                    element_chain = any(r.get("element_table") for r in preceding)
+                    possible_elements = element_chain or bool(table_fields & rules.SUBSTANTIVE_FIELDS)
+                    continuation = {"status": "confirmed" if names else "needs_review",
+                                    "method": "explicit_adjacent_continuation",
+                                    "element_chain": possible_elements,
+                                    "previous_region_ids": [r["region_id"] for r in preceding],
+                                    "previous_page": preceding[0]["locations"][0].get("page") if preceding else None}
+                    if possible_elements and not element_chain:
+                        continuation["status"] = "needs_review"
+            elif (not word and not names and reason != "explicit_product_name_missing" and previous
+                  and any(r.get("element_table") for r in previous)
+                  and (not heading or rules.ELEMENT_TITLE.search(heading))
+                  and not rules.NON_ELEMENT_TITLE.search(heading)
+                  and (not table_fields or table_fields & rules.ELEMENT_FIELDS)):
+                # Repeat titles often omit “续”, and later pages can omit the
+                # title too. Only an immediately adjacent, unique element table
+                # with matching geometry/grid can supply its product identity.
+                eligible = [r for r in previous if r.get("element_table") and r["status"] != "ambiguous"
+                            and len(r["product_names"]) == 1
+                            and _same_table_layout(r["locations"][0], location)]
+                safe = len(previous) == len(eligible) == 1 and bool(table_fields & rules.SUBSTANTIVE_FIELDS)
+                reason = "inferred_adjacent_element_continuation" if safe else "element_continuation_needs_review"
+                continuation = {"status": "confirmed" if safe else "needs_review", "method": reason,
+                                "element_chain": True,
+                                "previous_region_ids": [r["region_id"] for r in previous],
+                                "previous_page": previous[0]["locations"][0].get("page")}
+                if safe:
+                    names = eligible[0]["product_names"]
+                    inherited = [{"region_id": eligible[0]["region_id"], "location": eligible[0]["locations"][0],
+                                  "method": reason, "evidence": "adjacent_element_table_matching_grid_and_horizontal_frame"}]
             region = self.region(names, reason, location, heading, inherited)
+            if continuation:
+                region["continuation"] = continuation
             table_regions.append(region)
             self.table_rows(rows, [region], None)
         else:
@@ -381,6 +451,14 @@ class _Analyzer:
                     table_regions.append(region)
                     region_columns.append((cell["grid_column"], region))
                 self.table_rows(rows[start:end], [r for _, r in region_columns], region_columns)
+        if not word:
+            fields = table_fields & rules.ELEMENT_FIELDS
+            marker = bool(rules.ELEMENT_TITLE.search(heading))
+            is_element = bool(fields & rules.SUBSTANTIVE_FIELDS) and (
+                marker or ("product_name" in fields and len(fields) >= 3))
+            for region in table_regions:
+                region["element_table"] = bool(region.get("continuation", {}).get("element_chain") or (
+                    is_element and (marker or not rules.NON_ELEMENT_TITLE.search(heading))))
         return table_regions
 
     def table_rows(self, rows, regions, region_columns):
@@ -774,16 +852,7 @@ def _template_context(analyzer, is_ppt, source, selection):
 def _delivery_scope(result, is_ppt):
     pages = set()
     if is_ppt:
-        # Also works for direct importlib loaders used by integrations/tests.
-        try:
-            from ppt_delivery import suggest_element_pages
-        except ModuleNotFoundError:
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("_material_ppt_delivery", Path(__file__).with_name("ppt_delivery.py"))
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            suggest_element_pages = module.suggest_element_pages
-        suggestion = suggest_element_pages(result)
+        suggestion = _ppt_rules().suggest_element_pages(result)
         result["template_selection"]["element_pages"] = suggestion
         pages = set(suggestion["pages"] + suggestion["review_pages"])
     for slot in result["slots"]:

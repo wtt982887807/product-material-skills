@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import shutil
 
-CORE_VERSION = '2.3.4'
+CORE_VERSION = '2.3.5'
 PROJECT = Path(__file__).resolve().parents[1]
 PENDING_PLACEHOLDER = '【待补充】'
 STATIC_TITLES = {'产品要素','产品要素表','产品概要','产品基本信息','基本信息','产品信息',

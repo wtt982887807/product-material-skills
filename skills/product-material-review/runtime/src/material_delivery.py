@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
+import re
 import shutil
+import unicodedata
 
 from material_task import ReviewError, file_hash, validate_review, source_version_matches
 
@@ -33,12 +35,230 @@ def _kind(material, explicit=None):
     return 'ppt' if source.suffix.lower() == '.pptx' else 'onepager'
 
 
-def delivery_name(material, kind=None):
+LEGAL_END = re.compile(r'(?:集合资产管理计划|单一资产管理计划|资产管理计划|集合资金信托计划|'
+                       r'集合资产信托计划|集合信托计划|资金信托计划|信托计划|资产管理信托|证券投资基金)$')
+METADATA_WORDS = re.compile(r'一页通|产品要素|营销垫板|业绩海报|海报|长图|PPT|factsheet|onepager|poster|'
+                            r'集团|对客|对内|对外|机构|内部|零售|家族|客户|新发|持营|更新|定稿|清洁|'
+                            r'工行|建行|农行|中行|交行|招行|邮储|渣打|平安|徽商|晋商|南银|'
+                            r'版|稿', re.I)
+DATE_TOKEN = r'(?:20\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])?|\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))'
+COPY_TOKEN = r'[（(](?:副本)?\d+[)）]'
+VERSION_TOKEN = r'[vV]\d+(?:\.\d+)*'
+REGION_TOKEN = re.compile(r'[（(](?:北京|天津|上海|重庆|河北|山西|辽宁|吉林|黑龙江|江苏|浙江|安徽|福建|'
+                          r'江西|山东|河南|湖北|湖南|广东|海南|四川|贵州|云南|陕西|甘肃|青海|台湾|'
+                          r'内蒙古|广西|西藏|宁夏|新疆|香港|澳门)(?:省|市|地区|自治区)?[)）]')
+TRAILING_METADATA = re.compile(r'(?<!\d)((?:[ _\-]*(?:'+DATE_TOKEN+'|'+COPY_TOKEN+'|'+VERSION_TOKEN+'|'+REGION_TOKEN.pattern+r'))+)$')
+
+
+def delivery_target(task):
+    """The contract's canonical identity wins over display aliases or filenames."""
+    contract = task.get('contract', {})
+    return contract['product'] if 'product' in contract else task.get('target_product')
+
+
+def _identity_name(identity):
+    return identity if isinstance(identity, str) else identity.get('name') if isinstance(identity, dict) else None
+
+
+def _short_name(name):
+    return LEGAL_END.sub('', name).strip()
+
+
+def _normalized_offsets(text):
+    normalized, offsets = [], []
+    for index, character in enumerate(text):
+        for normalized_character in unicodedata.normalize('NFKC', character).casefold():
+            if normalized_character.isspace() or normalized_character in '·•()':
+                continue
+            normalized.append(normalized_character)
+            offsets.append(index)
+    return ''.join(normalized), offsets
+
+
+def _normal(text):
+    return _normalized_offsets(text)[0]
+
+
+def _metadata_only(text):
+    """Conservative filename scaffolding, never an arbitrary product title."""
+    text = re.sub(r'[\u4e00-\u9fff]{2,12}银行', '', text)
+    text = METADATA_WORDS.sub('', text)
+    text = re.sub(VERSION_TOKEN, '', text)
+    text = re.sub(COPY_TOKEN, '', text)
+    text = REGION_TOKEN.sub('', text)
+    text = re.sub(r'\d{4,8}(?:更新)?', '', text)
+    return not re.sub(r'[\s【】\[\]（）()_.\-—,:：/]', '', text)
+
+
+def _safe_brackets(stem):
+    return [match.group(0) for match in re.finditer(r'【[^【】]+】', stem)
+            if _metadata_only(match.group(0))]
+
+
+EDGE_TOKEN = re.compile(r'(?:'+VERSION_TOKEN+'|'+DATE_TOKEN+'|'+COPY_TOKEN+'|'+REGION_TOKEN.pattern+'|'+
+                        METADATA_WORDS.pattern+r'|[\s_\-—.]+)', re.I)
+
+
+def _metadata_prefix_length(text):
+    """Consume only known metadata tokens, stopping at the first unknown word."""
+    offset = 0
+    while offset < len(text):
+        # 平安 can label a bank channel, but not when it starts a trust or
+        # securities issuer name. Keep that whole unknown product for removal.
+        if re.match(r'平安(?:信托|证券|资管)', text[offset:]):
+            break
+        if text[offset] == '【':
+            end = text.find('】', offset + 1)
+            if end < 0 or not _metadata_only(text[offset:end+1]):
+                break
+            offset = end + 1
+            continue
+        match = EDGE_TOKEN.match(text, offset)
+        if not match:
+            break
+        offset = match.end()
+    return offset
+
+
+def _fallback_edges(stem, target_short, selected):
+    prefix_length = _metadata_prefix_length(stem)
+    if prefix_length == len(stem):
+        return None  # Preserve the established generic-template naming below.
+    prefix, remaining = stem[:prefix_length], stem[prefix_length:]
+    suffix_at = len(remaining)
+    for index in range(len(remaining)):
+        # A recognized date cannot begin in the middle of a longer number.
+        if index and remaining[index-1].isdigit() and remaining[index].isdigit():
+            continue
+        if _metadata_prefix_length(remaining[index:]) == len(remaining)-index:
+            suffix_at = index
+            break
+    middle, suffix = remaining[:suffix_at], remaining[suffix_at:]
+    if not middle or not re.search(r'[^\s_\-—.]', prefix+suffix):
+        return None
+    # Bracketed metadata in the middle can still be retained, but no unknown
+    # piece surrounding it is copied into the new product title.
+    prefix += ''.join(_safe_brackets(middle))
+    if selected == 'ppt':
+        prefix, suffix = prefix.replace('产品要素', ''), suffix.replace('产品要素', '')
+    type_word = {'poster':'海报', 'onepager':'一页通', 'ppt':''}[selected]
+    if type_word and not re.search(r'一页通|海报|长图|factsheet|onepager|poster', prefix+suffix, re.I):
+        suffix += type_word
+    return prefix + target_short + suffix
+
+
+def _fallback_stem(stem, target_short, selected):
+    edged = _fallback_edges(stem, target_short, selected)
+    if edged is not None:
+        return edged
+    prefix = re.match(r'^\s*('+VERSION_TOKEN+r')', stem)
+    brackets = _safe_brackets(stem)
+    # A date inside a bracket belongs only to that bracket, never to the tail.
+    outside = re.sub(r'【[^【】]*】', '', stem).replace('产品要素', '')
+    if prefix:
+        outside = re.sub(r'^\s*'+re.escape(prefix.group(1)), '', outside, count=1)
+    tail = TRAILING_METADATA.search(outside)
+    suffix = tail.group(1) if tail else ''
+    metadata = (prefix.group(1) if prefix else '') + ''.join(brackets)
+    type_word = {'poster':'海报', 'onepager':'一页通', 'ppt':''}[selected]
+    # Preserve an identifiable original type even when the old product portion
+    # is unknown. Generic PPT filenames only need the 产品要素 suffix below.
+    if type_word and not re.search(r'一页通|海报|长图|factsheet|onepager|poster', metadata, re.I):
+        suffix += type_word
+    if selected == 'ppt':
+        metadata = metadata.replace('产品要素', '')
+    return metadata + target_short + suffix
+
+
+def _source_variants(material):
+    identity = material.get('template_source_product')
+    if not identity and material.get('material_mode') != 'template':
+        identity = material.get('target_product')
+    name = _identity_name(identity)
+    if not isinstance(name, str) or not name.strip():
+        return []
+    aliases = identity.get('aliases', []) if isinstance(identity, dict) else []
+    if isinstance(aliases, str):
+        aliases = [aliases]
+    variants = {}
+    for value in [name, *aliases]:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        # A legal full name may end in a qualifier such as （QDII）. Keep that
+        # classification; do not guess a shortened form by dropping qualifiers.
+        full = bool(LEGAL_END.search(value) or LEGAL_END.search(re.sub(r'[（(][^()（）]+[)）]$', '', value)))
+        variants.setdefault(_normal(value), (value, full))
+        shortened = _short_name(value)
+        if shortened and shortened != value:
+            variants.setdefault(_normal(shortened), (shortened, False))
+    return sorted(variants.values(), key=lambda item: len(_normal(item[0])), reverse=True)
+
+
+def _matched_name(stem, variants):
+    normalized, offsets = _normalized_offsets(stem)
+    for source_name, full in variants:
+        needle = _normal(source_name)
+        if not needle:
+            continue
+        for found in re.finditer(re.escape(needle), normalized):
+            start, end = offsets[found.start()], offsets[found.end()-1]+1
+            if source_name.endswith((')', '）')) and stem[end:end+1] in {')', '）'}:
+                end += 1
+            before, after = stem[:start], stem[end:]
+            # Do not replace a numeric subspan or erase a different issue suffix.
+            if ((needle[0].isdigit() and found.start() and normalized[found.start()-1].isdigit())
+                    or (needle[-1].isdigit() and found.end()<len(normalized) and normalized[found.end()].isdigit())
+                    or re.match(r'\s*[0-9０-９一二三四五六七八九十]+[号期]', after)):
+                continue
+            # One real trust filename repeats its issuer before the actual
+            # product span. Discard only an exact prefix of that source name.
+            issuer = before.strip()
+            duplicated_issuer = (bool(re.fullmatch(r'[\u4e00-\u9fff]{2,16}(?:信托|银行|证券|资管)', issuer))
+                                 and _normal(source_name).startswith(_normal(issuer)))
+            if duplicated_issuer:
+                before = ''
+            if _metadata_only(before) and _metadata_only(after):
+                return source_name, full, before, after, duplicated_issuer
+    return None
+
+
+def _filename_safe(stem, suffix):
+    stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', stem).strip(' .')
+    if not stem:
+        raise ReviewError('合同产品身份不能生成有效文件名')
+    if re.match(r'^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)', stem, re.I):
+        stem = '_' + stem
+    return stem + suffix
+
+
+def delivery_naming(material, kind=None, *, target_product=None):
     source = Path(material['source'].get('original_path', material['source']['path']))
     selected = _kind(material, kind)
+    target = _identity_name(target_product if target_product is not None else material.get('target_product'))
+    if not isinstance(target, str) or not target.strip():
+        raise ReviewError('交付命名缺少合同确定的目标产品身份，不能从模板文件名推断')
+    target = target.strip()
+    match = _matched_name(source.stem, _source_variants(material))
+    if match:
+        old_name, full, prefix, suffix, duplicate = match
+        if source.suffix.lower() == '.pptx' and selected == 'ppt':
+            prefix, suffix = prefix.replace('产品要素', ''), suffix.replace('产品要素', '')
+        stem = prefix + (target if full else _short_name(target)) + suffix
+        method = 'matched_full_name' if full else 'matched_short_name'
+    else:
+        old_name, duplicate = None, False
+        stem = _fallback_stem(source.stem, _short_name(target), selected)
+        method = 'rebuilt_from_contract_and_safe_metadata'
     if source.suffix.lower() == '.pptx' and selected == 'ppt':
-        return source.stem + '产品要素' + source.suffix
-    return source.name
+        stem += '产品要素'
+    return {'name':_filename_safe(stem, source.suffix), 'method':method,
+            'source_template_name':source.name, 'matched_source_name':old_name,
+            'target_product_name':target, 'removed_duplicate_issuer':duplicate}
+
+
+def delivery_name(material, kind=None, *, target_product=None):
+    return delivery_naming(material, kind, target_product=target_product)['name']
 
 
 def _plans(task, result):
@@ -58,7 +278,7 @@ def _plans(task, result):
 
 def _destinations(task, plans, output_dir):
     folder = Path(output_dir).resolve() / 'delivery'
-    names = {m['material_id']: delivery_name(m, plans.get(m['material_id'], {}).get('kind'))
+    names = {m['material_id']: delivery_name(m, plans.get(m['material_id'], {}).get('kind'), target_product=delivery_target(task))
              for m in task['materials']}
     counts = Counter(name.casefold() for name in names.values())
     paths = {}
@@ -127,6 +347,7 @@ def build_deliveries(task, result, output_dir):
             if setup_error or mid in conflicts:
                 raise ReviewError(setup_error or conflicts[mid])
             record = records.get(mid)
+            item['naming_metadata'] = delivery_naming(material, kind, target_product=delivery_target(task))
             _verify_internal(material, record, checked['operations'][mid])
             if Path(material['source']['path']).suffix.lower() == '.pptx':
                 from material_cli import deliver_ppt
@@ -208,8 +429,11 @@ def validate_deliveries(task, result):
             if output in protected or output in output_paths:
                 raise ReviewError('交付覆盖来源、内部稿或与另一交付冲突')
             output_paths.add(output)
-            if output.name != delivery_name(material, plan.get('kind')):
-                raise ReviewError('交付文件名不符合上传模板命名规则')
+            naming = delivery_naming(material, plan.get('kind'), target_product=delivery_target(task))
+            if output.name != naming['name']:
+                raise ReviewError('交付文件名未按合同产品身份及模板命名格式生成')
+            if item.get('naming_metadata') != naming:
+                raise ReviewError('交付命名记录与合同身份和模板来源不一致')
             if not output.is_file() or file_hash(output) != item.get('output_sha256'):
                 raise ReviewError('交付文件已变化或不存在')
             record = records.get(mid)

@@ -69,21 +69,25 @@ def suggest_element_pages(material):
             title = re.sub(r"\s+", "", region.get("title", ""))
             table = any(loc.get("table") for loc in region.get("locations", []))
             marker = bool(ELEMENT_TITLE.search(title))
+            continuation = region.get("continuation", {})
             if NON_ELEMENT_TITLE.search(title) and not marker:
                 continue
-            qualifies = bool(substantive) and (
+            qualifies = (table and continuation.get("element_chain") and
+                         continuation.get("status") in {"confirmed", "needs_review"}) or bool(substantive) and (
                 marker or (table and "product_name" in fields and len(fields) >= 3)
                 or len(substantive) >= 3)
             if qualifies:
                 candidates.append(region)
                 evidence.append({"page": page, "region_id": region.get("region_id"),
                                  "status": region.get("status"), "title": region.get("title", ""),
-                                 "fields": sorted(fields), "table": bool(table)})
+                                 "fields": sorted(fields), "table": bool(table),
+                                 **({"continuation": continuation} if continuation else {})})
         if not candidates:
             excluded.append(page)
             continue
         targets = [r for r in candidates if r.get("status") == "target"]
-        ambiguous = [r for r in candidates if r.get("status") not in {"target", "other"}]
+        ambiguous = [r for r in candidates if r.get("status") not in {"target", "other"}
+                     or r.get("continuation", {}).get("status") == "needs_review"]
         # Generic unscoped title/footer regions are not another product, but any
         # explicit competing identity or unscoped element fields require review.
         conflicts = [r for r in regions if r.get("status") == "other" or
