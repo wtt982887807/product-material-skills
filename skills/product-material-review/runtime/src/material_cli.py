@@ -29,7 +29,7 @@ def doctor():
     configs={name:(PROJECT/'config'/name).is_file() for name in required}
     modules={name:(PROJECT/'src'/(name+'.py')).is_file() for name in ('material_cli','material_task','contract_facts',
              'material_regions','material_writer','case_checks','corpus','qdii_pipeline','task_report','task_validation','ppt_delivery',
-             'contract_recheck','requirement_review','material_delivery','word_preparation')}
+             'contract_recheck','requirement_review','material_delivery','word_preparation','review_packet')}
     return {'ok':sys.version_info >= (3,11) and all(dependencies.values()) and all(configs.values()) and all(modules.values()),
             'python':sys.version.split()[0],'executable':sys.executable,'runtime':str(PROJECT),
             'dependencies':dependencies,'configurations':configs,'modules':modules,
@@ -107,6 +107,7 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
             raise ReviewError(f'第{page}页含身份待核要素，不能通过手工页码绕过')
     content_status='reviewed_output'
     pending_slots=[]
+    retained_ids=[]
     if not set(pages).issubset(set(suggestion['pages']) | set(suggestion.get('review_pages',[]))):
         raise ReviewError('交付仅允许产品要素页，不能手工加入封面或市场页')
     if task.get('material_mode')=='template':
@@ -119,11 +120,14 @@ def validate_ppt_pages(task,result,material_id,pages=None,review_reason=None):
         if unreviewed:
             raise ReviewError('模板内容存在未处置或未审阅槽位，禁止交付：'+', '.join(sorted(unreviewed)))
         pending_slots=sorted(set(coverage['pending_slot_ids']) & selected_slots)
-        content_status='pending_draft' if pending_slots else 'content_reviewed'
+        from material_delivery import retained_requirement_ids, content_status as reviewed_content_status
+        retained_ids=retained_requirement_ids(checked, material_id, selected_slots)
+        content_status=reviewed_content_status(pending_slots, retained_ids)
     from ppt_delivery import _pages, _read_package, _slide_order
     _,_,slides=_slide_order(_read_package(Path(record['output']).read_bytes()))
     pages=_pages(pages,len(slides))
     return {'pages':pages,'content_status':content_status,'pending_slot_ids':pending_slots,
+            'template_retained_requirement_ids':retained_ids,
             'selection':suggestion}
 
 
@@ -157,11 +161,13 @@ def deliver_ppt(task,result,material_id,output,pages=None,review_reason=None):
                     included_decisions=included,excluded_decisions=excluded,visual_status='not_checked',
                     material_mode=task.get('material_mode','review'),content_status=content_status,
                     pending_slot_ids=pending_slots,template_source_product=material.get('template_source_product'),
+                    template_retained_requirement_ids=selection.get('template_retained_requirement_ids',[]),
                     note='只交付所选产品要素页；完整稿中的其他页及其修改不在本交付中，待核信息不因此自动结案。')
     write_json(manifest,exported)
     return {'output':str(output),'manifest':str(manifest),'pages':pages,'valid':True,
             'included_decisions':included,'excluded_decisions':excluded,'visual_status':'not_checked',
-            'content_status':content_status,'pending_slot_ids':pending_slots}
+            'content_status':content_status,'pending_slot_ids':pending_slots,
+            'template_retained_requirement_ids':selection.get('template_retained_requirement_ids',[])}
 
 
 def main():
@@ -172,18 +178,31 @@ def main():
                 raise ReviewError('旧DOC需先转换成DOCX；可直接分析DOCX，或register-conversion登记后用--project-dir指定缓存。')
         from material_task import main as core_main
         return core_main()
-    parser=argparse.ArgumentParser(description='产品物料审阅CLI：analyze / search-contract / inspect-review / apply / validate / accept / deliver-ppt / doctor / register-conversion')
+    parser=argparse.ArgumentParser(description='产品物料审阅CLI：analyze / review-packet / search-contract / inspect-review / apply / validate / accept / deliver-ppt / doctor / register-conversion')
     sub=parser.add_subparsers(dest='command',required=True)
     sub.add_parser('doctor')
     search=sub.add_parser('search-contract',help='回查本任务合同原文和上下文，结果仍须语义核实')
     search.add_argument('--task',required=True)
-    search.add_argument('--query',action='append',required=True)
+    search_input=search.add_mutually_exclusive_group(required=True)
+    search_input.add_argument('--query',action='append')
+    search_input.add_argument('--batch',help='分组JSON数组，每组有id、queries及可选limit')
+    search_input.add_argument('--retention-field',help='指定缺项例外字段；强制同义词全量回查并列出须审阅原文块')
     search.add_argument('--limit',type=int,default=20)
     search.add_argument('--out')
+    search.add_argument('--compact',action='store_true',help='保留完整命中正文，仅压缩重复覆盖元数据')
     inspect=sub.add_parser('inspect-review',help='检查需求、合同补提及最终内容记录，不修改物料')
     inspect.add_argument('--task',required=True)
     inspect.add_argument('--review',required=True)
     inspect.add_argument('--out')
+    inspect.add_argument('--compact',action='store_true',help='只列计数与未处理ID，完整核验仍会执行')
+    packet=sub.add_parser('review-packet',help='按页读取无损审阅工作视图，避免每次读取完整task.json')
+    packet.add_argument('--task',required=True)
+    packet.add_argument('--section',choices=['overview','contract','slots','facts'],default='overview')
+    packet.add_argument('--material-id')
+    packet.add_argument('--field',action='append')
+    packet.add_argument('--offset',type=int,default=0)
+    packet.add_argument('--limit',type=int,default=40)
+    packet.add_argument('--out')
     d=sub.add_parser('deliver-ppt')
     for name in ('task','result','material-id','out'):d.add_argument('--'+name,required=True)
     d.add_argument('--pages',help='核实后的原PPT页码，例如22,23；不填则保守识别')
@@ -195,33 +214,63 @@ def main():
         value=doctor();print(json.dumps(value,ensure_ascii=False,indent=2))
         if not value['ok']:raise SystemExit(1)
     elif args.command=='register-conversion':print(json.dumps(register_conversion(args.source,args.converted,args.cache_dir),ensure_ascii=False,indent=2))
-    elif args.command in {'search-contract','inspect-review'}:
+    elif args.command in {'search-contract','inspect-review','review-packet'}:
         task=read_json(args.task)
-        _require_fresh_task(task)
-        if args.command=='search-contract':
+        if args.command=='review-packet':
+            from review_packet import build_review_packet
+            value=build_review_packet(task,section=args.section,material_id=args.material_id,
+                                      fields=args.field,offset=args.offset,limit=args.limit)
+        elif args.command=='search-contract':
             from contract_recheck import search_contract
-            value=search_contract(task,args.query,limit=args.limit)
-        else:value=inspect_review(task,read_json(args.review))
+            from review_packet import batch_search_contract, compact_search_report
+            if args.retention_field:
+                from template_retention import retention_search
+                _require_fresh_task(task)
+                value=retention_search(task,args.retention_field)
+                if args.compact:value=compact_search_report(value)
+            elif args.batch:value=batch_search_contract(task,read_json(args.batch),args.limit,args.compact)
+            else:
+                _require_fresh_task(task)
+                value=search_contract(task,args.query,limit=args.limit)
+                if args.compact:value=compact_search_report(value)
+        else:
+            value=inspect_review(task,read_json(args.review))
+            if args.compact:
+                from review_packet import compact_review_report
+                value=compact_review_report(value)
         if args.out:
             destination=Path(args.out).resolve()
             sources=[task['contract']['source'],*[m['source'] for m in task['materials']]]
             protected=[Path(args.task).resolve(),*[Path(source[key]).resolve()
                        for source in sources for key in ('path','converted_path','original_path') if source.get(key)]]
             if args.command=='inspect-review':protected.append(Path(args.review).resolve())
+            if args.command=='search-contract' and args.batch:protected.append(Path(args.batch).resolve())
             if destination in protected:raise ReviewError('报告输出不能覆盖任务、审阅记录或输入文件')
             write_json(destination,value)
             if args.command=='search-contract':
-                value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
+                if args.batch:
+                    value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
+                           'group_count':value['group_count'],'groups':[{'id':g['id'],
+                            'status':g['result']['status'],'hit_count':g['result']['total_match_count'],
+                            'returned_count':g['result']['match_count'],'truncated':g['result']['truncated']}
+                            for g in value['groups']],'absence_proven':False}
+                else:value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
                        'source_status':value.get('source_status'),'status':value.get('status'),
                        'hit_count':value.get('total_match_count'),'returned_count':len(value.get('matches',[])),
                        'truncated':value.get('truncated'),'absence_proven':False}
-            else:
+            elif args.command=='inspect-review':
+                pending_check_count=value['pending_check_count'] if args.compact else len(value['pending_checks'])
+                pending_content_count=value['pending_content_slot_count'] if args.compact else sum(
+                    len(set(c['pending_slot_ids'])|set(c['unreviewed_slot_ids'])) for c in value['template_coverage'].values())
                 value={'command':args.command,'report':str(destination),'task_id':task['task_id'],
                        'valid':value['valid'],'semantic_review_complete':value['semantic_review_complete'],
-                       'pending_check_count':len(value['pending_checks']),
-                       'pending_content_slot_count':sum(len(set(c['pending_slot_ids'])|set(c['unreviewed_slot_ids']))
-                                                       for c in value['template_coverage'].values()),
+                       'pending_check_count':pending_check_count,
+                       'pending_content_slot_count':pending_content_count,
                        'scope':value['scope']}
+            else:
+                value={'command':args.command,'report':str(destination),
+                       **{key:value[key] for key in ('task_id','section','returned_count','total','next_offset',
+                                                   'semantic_review_complete','scope') if key in value}}
         print(json.dumps(value,ensure_ascii=False,indent=2))
     else:
         pages=[int(x.strip()) for x in args.pages.split(',')] if args.pages else None
