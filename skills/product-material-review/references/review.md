@@ -15,7 +15,7 @@
 
 从本任务的 `review.template.json` 建立审阅文件，原样保留 `schema_version`、`task_id` 和全部 `source_hashes`。后续继续编辑同一个审阅文件，不覆盖已完成的决定。AI 负责以下记录：
 
-| 数组 | 用途 | 必需信息 |
+| 记录 | 用途 | 必需信息 |
 | --- | --- | --- |
 | `supplements` | 保存合同外的本次有效补充依据 | 唯一 `supplement_id`；与目标完全一致的 `product_name`；`field_id`；非空 `value`；可追溯 `source_note` |
 | `new_fields`、`contract_rechecks` | 定义任务内新字段并登记合同补提 | 精确定义；本合同块与引文、来源哈希、审阅理由，见 [需求参考](requirements.md) |
@@ -23,6 +23,7 @@
 | `decisions` | 指定局部替换或 Word 批注 | 唯一 `decision_id`；`material_id`；`slot_id`；`kind`；精确原文 `before`；新文/批注 `after`；`reason`；`reviewed: true`；`evidence`；模板事实替换还需 `requirement_ids` |
 | `resolutions` | 结案真正解决的具体检查 | `check_id`；说明如何解决的 `reason`；`reviewed: true`；`evidence` |
 | `slot_dispositions` | 模板模式逐个选中内容槽位的最终处置 | `material_id`；`slot_id`；`action`；完整 `final_text`；`decision_ids`；`requirement_ids`；`discovery_reviewed: true`；`discovery_reason`；`evidence`；`reason`；`reviewed: true` |
+| `delivery_plan` | 必要时指定每份物料的实际类别和审核后的源页码 | 以实际 `material_id` 为键的对象；`kind` 为 `ppt`、`poster` 或 `onepager`；手动 `pages` 须有 `review_reason` |
 
 `reviewed: true` 表示该条已完成实质审阅，不表示用户逐条点击批准。已有任务授权足以执行其中有依据的操作；未决业务事实继续保持待核。
 
@@ -74,6 +75,29 @@
 模板的 `template_content_review` 检查依赖有效槽位处置及其需求核对；其他业务检查仍需逐条审阅。只有证据实际解决对应 `check_id`，并且要求的正文改动或有依据保留实际完成时，才写入 `resolutions`。新增批注或待补占位没有解决实质缺项；只补日期依据而正文仍是旧日期，也不能结案。原子需求、槽位处置和一般检查分别验证，不能用一条结案记录替代全部核对。
 
 检查有 `required_evidence_field` 时按该字段提供依据。当前开放日期等外部事实适用时，需要对应字段的本次有效补充，一般开放周期不足以证明具体日期；若该要求被合同明确排除，应通过有依据的不适用需求处理，不能虚构补充资料。不要为得到完成状态而批量结案。
+
+## 交付计划
+
+AI 核对每份模板的实际用途和主体页范围。默认分类或安全建议明确时无需重复指定；分类不准或需要显式选页时，在审阅文件加入 `delivery_plan`：
+
+```json
+{
+  "delivery_plan": {
+    "本任务的PPT物料ID": {
+      "kind": "ppt",
+      "pages": [2, 3],
+      "review_reason": "已逐页确认两页均为选中模板主体的要素表及续表，无底层或其他产品内容"
+    },
+    "本任务的海报物料ID": {
+      "kind": "poster"
+    }
+  }
+}
+```
+
+页码仅示范结构，仅用于 PPTX，执行时使用本次原文件的实际 1-based 页码，升序且不重复；DOCX 不填写 `pages`。显式页码必须有非空、具体的 `review_reason`；`kind` 本身不改变可编辑主体或页范围。PPTX 格式的一页通、海报也要通过相同安全选页检查，不能靠分类放行混页或未选产品。
+
+`onepager` 和 `poster` 保留模板文件名，`ppt` 在模板原文件名的扩展名前加“产品要素”；同名时用物料 ID 子目录区分，文件名不追加 ID 或审阅状态。`apply` 自动生成 `internal/` 完整稿、`delivery/` 用户文件和交付清单；受阻项不生成替代成品。最终验收绑定用户实际收到的文件，详见 [验收与交付](qa-and-delivery.md)。
 
 ## 编辑限制
 

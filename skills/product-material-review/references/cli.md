@@ -55,13 +55,9 @@ python -X utf8 $materialCli accept `
   --result '本次审阅/updated_01/update_result.json' `
   --qa '本次审阅/updated_01/acceptance.json' `
   --out '本次审阅/updated_01/accepted_result.json'
-
-python -X utf8 $materialCli deliver-ppt `
-  --task '本次审阅/analysis/task.json' `
-  --result '本次审阅/updated_01/update_result.json' `
-  --material-id '本任务的实际PPT物料ID' `
-  --out '本次审阅/delivery/产品要素页.pptx'
 ```
+
+`apply` 自动将完整审阅稿写入 `updated_01/internal/`，把用户文件写入 `updated_01/delivery/`；读取 `update_result.json` 的 `deliveries` 和 `delivery_manifest.json` 获取实际交付路径。命令摘要只列交付结果和阻塞原因，不能把运行成功等同于每份文件已生成或验收通过。执行 `accept` 前，由 AI 按 [验收与交付](qa-and-delivery.md) 实际检查文件并填写 QA；仅检查内部稿不够。
 
 `analyze` 必需一份 `--contract` 和至少一份 `--material`；每份模板重复一次 `--material`。可传 `--as-of YYYY-MM-DD`，省略时使用北京时间当天，日期参数本身不提供最新事实。`--product` 只能确认合同已识别的名称或别名，不能修复未知或冲突身份。
 
@@ -96,7 +92,13 @@ AI 读取封面、要素表及上下文，分别确认每份模板的主体。�
 
 模板模式的 `regions[].status=target` 表示选中的源模板区域，承载的目标内容来自合同；`other` 表示未选模板区域，`ambiguous` 表示选择仍待核。源模板主体与合同目标分别记录，不要求同名，也不能通过修改快照状态把未选区变成可编辑。
 
-`deliver-ppt` 默认使用无歧义的选中要素页建议。模板模式按选定模板主体选页，内容随后按合同转换；`review` 模式按合同产品选页。需要显式指定经审核的原始页码时，追加 `--pages '22,23' --review-reason '本次逐页核对后的具体依据'`；示例页码不代表任何产品的固定页码。没有明确选中区域、含未选产品区域或含身份待核要素的页面都会被拒绝，手动页码与理由不能绕过；要保留混页中的选中内容，需要另做区域隔离，当前 CLI 不执行对象级隔离。详见 [验收与 PPT 交付](qa-and-delivery.md)。
+### 分类和选页
+
+默认名称含“海报”或 `poster` 的文件归为 `poster`，含“一页通”、`factsheet` 或 `onepager` 的文件归为 `onepager`；其他 PPTX 归为 `ppt`，其余归为 `onepager`。这是初始分类，AI 应按实际用途核对，必要时填写 [review.delivery_plan](review.md#交付计划)。一页通和海报保留模板原文件名；`ppt` 在模板文件名扩展名前追加“产品要素”。重名用物料 ID 子目录区分。
+
+所有 PPTX（含海报、一页通）使用安全的选中主体要素页建议；确需显式指定时在交付计划填写源页码和具体依据。页码升序、去重且为正整数；未选产品页、混页或身份待核要素页仍会受阻，不能以手动页码或更换 `kind` 绕过。受阻时 `deliveries` 记录原因，不回退交付完整稿。
+
+`deliver-ppt` 保留为单独检查或重新导出的工具，新任务的正常交付由 `apply` 自动完成。独立调用时先读 `--help`；它支持 `--pages`、`--review-reason`，但不改变上述主体边界，也不替代本次交付清单及最终文件验收。规则见 [验收与交付](qa-and-delivery.md)。
 
 ## 旧 DOC 的转换登记
 
@@ -126,11 +128,13 @@ python -X utf8 $materialCli analyze `
 | `analysis/task.json` | 完整事实候选、合同目标、源模板主体、选中区域、字段槽位、检查项和版本依据 |
 | `analysis/review.template.json` | 本任务的审阅记录模板，由 AI 补充原子需求、合同回查及处置为 `review.json` |
 | `analysis/审阅说明.md` 与各 CSV | 可读底稿、逐物料需求和缺项检查 |
-| `updated_01/update_result.json` | 每份输出路径、哈希、状态、修改验证和未决检查 |
+| `updated_01/update_result.json` | 内部输出、`deliveries` 最终交付记录、哈希、状态、修改验证和未决检查 |
 | `updated_01/review.applied.json` | 实际执行的审阅记录 |
-| `accepted_result.json` | 绑定实际文件哈希的验收结果 |
-| `delivery/产品要素页.pptx` | 仅含确认目标产品要素页的 PPT 副本 |
-| `delivery/产品要素页.delivery.json` | 选页映射、来源与输出哈希、结构校验、包含/排除的修改决定和待验收状态 |
+| `updated_01/internal/` | 完整审阅稿，供修改验证和追溯 |
+| `updated_01/delivery/` | 海报/一页通保持模板文件名，PPT 为“模板原名产品要素.pptx”；重名时增加物料 ID 子目录 |
+| `updated_01/delivery_manifest.json` | `task_id`、`delivery_required` 和各物料 `deliveries`；受阻项没有输出路径 |
+| 交付 PPTX 同目录的 `.delivery.json` | 选页映射、来源/输出哈希、结构校验及包含/排除的修改决定 |
+| `updated_01/accepted_result.json` | 实际验收结果；最终 `deliveries` 含原生/视觉状态，初始交付清单仍保留生成时状态 |
 
 `apply` 不覆盖原业务文件，同名目的文件已存在时应使用新的输出目录。模板模式须同时完成 `review.requirements` 原子需求核对和 `review.slot_dispositions` 槽位处置；只改名称、只补 `supplements` 或只接收自动需求种子不代表内容已核完。未处置或待补内容会保留待核，规则见 [审阅文件与依据](review.md)。修改来源、模式、模板选择、配置或分析代码后重新 `analyze` 并复核决定，不能把旧任务/审阅文件中的哈希改成新值。
 
