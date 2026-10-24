@@ -67,6 +67,8 @@ def build_review_packet(task, section='overview', material_id=None, fields=None,
     if section=='overview':
         packet.update(target_product=_pick(task['target_product'],('name','aliases','status')),
             material_mode=task.get('material_mode'),coverage=coverage_summary(contract.get('coverage',{})),
+            editing_policy=task.get('editing_policy'),
+            target_rule='合同决定目标产品；模板原产品不同不需确认，模板原话术和格式为基线，仅修改有依据的差异。',
             warning_counts=_warning_counts(contract.get('issues',[])),
             field_candidate_counts=dict(Counter(f.get('field_id') or '__unknown__' for f in facts)),
             materials=[])

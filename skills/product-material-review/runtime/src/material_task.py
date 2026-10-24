@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import shutil
 
-CORE_VERSION = '2.3.5'
+CORE_VERSION = '2.4.0'
 PROJECT = Path(__file__).resolve().parents[1]
 PENDING_PLACEHOLDER = '【待补充】'
 STATIC_TITLES = {'产品要素','产品要素表','产品概要','产品基本信息','基本信息','产品信息',
@@ -51,7 +51,7 @@ def source_version_matches(source):
 def engine_hashes():
     modules=['contract_facts.py','contract_recheck.py','requirement_review.py','material_regions.py','case_checks.py','material_task.py','material_writer.py',
               'corpus.py','qdii_pipeline.py','task_validation.py','task_report.py','ppt_delivery.py','material_cli.py','material_delivery.py',
-              'word_preparation.py','template_retention.py','review_packet.py']
+              'word_preparation.py','template_retention.py','review_packet.py','text_spans.py']
     values={n:file_hash(PROJECT/'src'/n) for n in modules if (PROJECT/'src'/n).exists()}
     values.update({'config/'+p.name:file_hash(p) for p in sorted((PROJECT/'config').glob('*.json'))
                    if p.name in {'field_dictionary.json','contract_field_extensions.json','qdii25_profile.json'}})
@@ -111,12 +111,13 @@ def _mapped_field(slot, record, *, required=True):
 
 
 def _final_slot_text(slot, decisions):
+    from text_spans import locate_span
     text = slot['text']
     ranges = []
     for decision in decisions:
         if decision['kind'] not in {'replace_text','placeholder'}: continue
-        start = text.find(decision['before'])
-        ranges.append((start, start + len(decision['before']), decision['after']))
+        start,end = locate_span(text,decision['before'],decision.get('start'))
+        ranges.append((start,end,decision['after']))
     ranges.sort()
     if any(right[0] < left[1] for left, right in zip(ranges, ranges[1:])):
         raise ReviewError('同一槽位替换范围重叠')
@@ -130,6 +131,23 @@ def _number_tokens(text):
     return {str(Decimal(x).normalize()) for x in re.findall(r'\d+(?:\.\d+)?', text)}
 
 
+def minimal_template_task(task):
+    version=tuple(int(x) for x in re.findall(r'\d+',task.get('core_version','0.0'))[:2])
+    return is_template_task(task) and (task.get('editing_policy')=='template_minimal' or version >= (2,4))
+
+
+def _minimal_replacement(before,after,start):
+    """Do not put identical template copy into Word deletion/insertion runs."""
+    left=0
+    while left<min(len(before),len(after)) and before[left]==after[left]: left+=1
+    right=0
+    while right<min(len(before)-left,len(after)-left) and before[-right-1]==after[-right-1]: right+=1
+    if len(before)-left-right==0:
+        if left: left-=1
+        elif right: right-=1
+    return before[left:len(before)-right],after[left:len(after)-right],start+left
+
+
 def validate_review(task, review):
     """Bind every change to analyzed source/product/slot, with evidence and review."""
     if task.get('engine_hashes') != engine_hashes():
@@ -138,6 +156,7 @@ def validate_review(task, review):
         raise ReviewError('审阅文件不属于本任务；请重新分析来源版本')
     materials = {m['material_id']: m for m in task['materials']}
     template_mode = is_template_task(task)
+    minimal_mode = minimal_template_task(task)
     from requirement_review import enabled, validate_requirements, validate_operation_requirements, bind_slot_requirements
     atomic_mode = enabled(task)
     hashes = review.get('source_hashes', {})
@@ -212,9 +231,11 @@ def validate_review(task, review):
         if slot.get('product_status') != 'target' or not region or region.get('status') != 'target':
             raise ReviewError('仅允许修改已确定属于目标产品的区域')
         kind = d.get('kind')
-        if kind not in ('replace_text', 'comment', 'placeholder'): raise ReviewError('不支持的修改类型')
+        if kind not in ('replace_text', 'comment', 'placeholder', 'highlight'): raise ReviewError('不支持的修改类型')
+        if minimal_mode and kind=='placeholder':
+            raise ReviewError('默认保留模板原文并局部标黄，不能用整槽占位清空缺项')
         if kind == 'placeholder' and not template_mode: raise ReviewError('占位决定仅用于模板模式')
-        if kind in {'replace_text','placeholder'} and not slot.get('editable'): raise ReviewError('目标槽位不可安全编辑')
+        if kind in {'replace_text','placeholder','highlight'} and not slot.get('editable'): raise ReviewError('目标槽位不可安全编辑')
         if not d.get('reviewed') or not d.get('reason'): raise ReviewError('修改必须经过审阅并填写理由')
         if atomic_mode and kind == 'replace_text':
             requirement_operation(d,mid,slot['slot_id'])
@@ -222,19 +243,39 @@ def validate_review(task, review):
             mapped_field = _mapped_field(slot, d, required=kind == 'replace_text')
             evidence_check(d.get('evidence'), mapped_field, kind == 'replace_text')
         before = d.get('before', '')
-        if not before or slot['text'].count(before) != 1:
-            raise ReviewError('修改前原文须在所选槽位中精确且唯一出现')
+        from text_spans import locate_span
+        try:start,end=locate_span(slot['text'],before,d.get('start'))
+        except ValueError as exc:raise ReviewError('修改前原文须精确定位：'+str(exc)) from exc
         if kind == 'placeholder' and (before != slot['text'] or d.get('after') != PENDING_PLACEHOLDER):
             raise ReviewError('缺项占位必须整槽替换为【待补充】，不可保留旧模板数值')
         if kind in {'replace_text','placeholder'} and (not isinstance(d.get('after'), str) or d['after'] == before):
             raise ReviewError('替换文本为空类型或未发生变化')
-        key = (mid, slot['part'], slot['xpath'], kind, before)
+        if kind=='highlight':
+            if d.get('color')!='yellow':raise ReviewError('待核参数仅使用yellow局部标黄')
+            pending_sources=requirement_state.get('template_retentions',{}) if requirement_state else {}
+            if not any(source.get('status')=='template_pending' and d['decision_id'] in source.get('highlight_decision_ids',[])
+                       for source in pending_sources.values()):
+                raise ReviewError('局部标黄必须关联已回查的待核模板参数')
+        key = (mid, slot['part'], slot['xpath'], kind, start,end)
         if key in used: raise ReviewError('同一原文范围重复修改；请合并为一次审阅决定')
         used.add(key)
-        operations[mid].append({'op_id': d['decision_id'], 'kind': 'replace_text' if kind == 'placeholder' else kind,
+        op={'op_id': d['decision_id'], 'kind': 'replace_text' if kind == 'placeholder' else kind,
                                 'part': slot['part'], 'xpath': slot['xpath'], 'before': before,
                                 'after': d.get('after', ''), 'reason': d['reason'],
-                                'evidence': d['evidence'], 'region_id': slot['region_id']})
+                                'evidence': d['evidence'], 'region_id': slot['region_id']}
+        if 'start' in d:op['start']=start
+        if kind=='highlight':
+            op['color']='yellow'
+            op.pop('after',None)
+        if minimal_mode and kind=='replace_text':
+            old,new,position=_minimal_replacement(before,d['after'],start)
+            linked=[requirement_state['records'][rid] for rid in d.get('requirement_ids',[])] if requirement_state else []
+            name_change=bool(linked) and all(q['field_id']=='product_name' for q in linked)
+            parameter=re.fullmatch(r'[0-9A-Za-z\s%％.,，/\\+\-—年月日号期()（）:：、]*',old+new)
+            if not parameter and not name_change and not str(d.get('wording_change_reason','')).strip():
+                raise ReviewError('模板话术默认保持；必要文字或条件变化须填写wording_change_reason说明最小措辞调整')
+            op.update(before=old,after=new,start=position)
+        operations[mid].append(op)
     coverage = {}
     dispositions = {}
     if not template_mode and review.get('slot_dispositions'):
@@ -254,7 +295,7 @@ def validate_review(task, review):
         if not record.get('reviewed') or not record.get('reason'):
             raise ReviewError('槽位内容处置必须审阅并填写理由')
         action = record.get('action')
-        if action not in {'rewrite','retain_verified','retain_template_exception','pending_placeholder','not_applicable','retain_static'}:
+        if action not in {'rewrite','retain_verified','retain_template_exception','retain_marked','pending_placeholder','not_applicable','retain_static'}:
             raise ReviewError('未知槽位内容处置动作')
         peers = [d for d in decisions if d['material_id'] == mid and d['slot_id'] == sid]
         replacements = [d for d in peers if d['kind'] in {'replace_text','placeholder'}]
@@ -295,14 +336,20 @@ def validate_review(task, review):
             if action == 'rewrite' and not replacements:
                 raise ReviewError('重写处置必须关联实际正文修改')
             retained = [requirement_state['records'][rid] for rid in record.get('requirement_ids',[])
-                        if atomic_mode and requirement_state['records'][rid]['status']=='template_retained']
+                        if atomic_mode and requirement_state['records'][rid]['status'] in {'template_retained','template_pending'}]
+            marked=[r for r in retained if r['status']=='template_pending']
+            if minimal_mode and any(r['status']=='template_retained' for r in retained):
+                raise ReviewError('新版缺项须保留原值并局部标黄，使用template_pending而非旧模板例外')
+            if action=='retain_marked' and (not marked or replacements):
+                raise ReviewError('retain_marked须有关联标黄的待核参数且无正文替换；混合修改用rewrite')
             if action == 'retain_template_exception':
                 if not retained or replacements:
                     raise ReviewError('模板例外保留须有已校验保留需求且不能有正文修改；混合修改使用rewrite')
-            if action in {'retain_verified','retain_template_exception'}:
+            if action in {'retain_verified','retain_template_exception','retain_marked'}:
                 if action == 'retain_verified' and retained:
-                    raise ReviewError('沿用模板不能标为已核实保留，须使用retain_template_exception')
+                    raise ReviewError('沿用模板不能标为已核实保留，待核参数须使用retain_marked')
                 if replacements: raise ReviewError('有正文修改应使用rewrite处置')
+            if action in {'retain_verified','retain_template_exception','retain_marked'} or (minimal_mode and action=='rewrite'):
                 source_map={**{('fact',fid):f for fid,f in facts.items()},**{('recheck',fid):f for fid,f in rechecks.items()},
                             **{('supplement',fid):f for fid,f in supplement_map.items()}}
                 if atomic_mode:
@@ -506,6 +553,7 @@ def analyze(contract_path, material_paths, *, product=None, as_of=None, project_
     if material_mode=='template':
         from requirement_review import seed_requirements
         task['requirement_schema_version']=1
+        task['editing_policy']='template_minimal'
         task['requirement_candidates']=seed_requirements(task)
     task['checks'] = inspect_cases(task)
     task['summary'] = {'material_count': len(materials), 'fact_count': len(contract['facts']),
@@ -522,8 +570,10 @@ def review_template(task):
                               **{m['material_id']: m['source']['sha256'] for m in task['materials']}},
             'supplements': [], 'decisions': [], 'resolutions': [], 'slot_dispositions':[],
             'new_fields':[], 'contract_rechecks':[], 'requirements':[], 'delivery_plan':{},
-            'instructions': ('合同决定目标产品内容，其余文件只提供模板格式。逐一填写交付范围内slot_dispositions；'
-                             '未处置或待补槽位不能全部完成。模板名称不同不是错误，但other/ambiguous区域仍不属于所选模板。'
+            'instructions': ('合同唯一决定目标产品；模板是最近产品的正文和格式底稿，不因期号或名称不同再问目标。'
+                             '保留模板原话术，仅对有依据的差异局部replace_text；必要措辞调整说明wording_change_reason。'
+                             '缺失日期、代码、费率等保留原值，以template_pending关联局部yellow highlight及简短批注；禁止默认整槽待补占位。'
+                             '逐一核对交付范围内slot_dispositions；已处理标黄可以交待核稿，但不算合同核实。other/ambiguous仍不属于所选模板。'
                              if is_template_task(task) else
                              '补充信息独立于合同事实；按slot_id局部审阅，不能修改other/ambiguous区域。日期只是个例之一。')}
 

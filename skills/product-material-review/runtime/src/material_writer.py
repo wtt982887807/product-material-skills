@@ -17,6 +17,18 @@ from zipfile import BadZipFile, ZipFile, ZIP_DEFLATED
 
 from lxml import etree
 
+try:
+    from text_spans import locate_span
+except ModuleNotFoundError as exc:
+    if exc.name != "text_spans":
+        raise
+    # Also support isolated file-based loaders used by portable skill clients.
+    import importlib.util
+    _span_spec = importlib.util.spec_from_file_location("material_text_spans", Path(__file__).with_name("text_spans.py"))
+    _span_module = importlib.util.module_from_spec(_span_spec)
+    _span_spec.loader.exec_module(_span_module)
+    locate_span = _span_module.locate_span
+
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
@@ -231,13 +243,20 @@ def _resolve(root, op, kind):
         _fail("PPT target must be a paragraph or explicitly scoped text shape/cell/table")
     hits = []
     before = op["before"]
+    source_start = op.get("start")
+    if source_start is not None and (isinstance(source_start, bool) or not isinstance(source_start, int) or source_start < 0):
+        _fail("start must be a nonnegative integer source paragraph offset")
     for paragraph in candidates:
         text = _text(paragraph, kind)
-        start = text.find(before)
-        if start >= 0:
-            if text.find(before, start + 1) >= 0:
-                _fail(f"Ambiguous before text for {op['op_id']}")
-            hits.append((paragraph, start, start + len(before)))
+        if before not in text:
+            continue
+        try:
+            start, end = locate_span(text, before, source_start)
+        except ValueError as exc:
+            if source_start is None or len(candidates) == 1:
+                _fail(f"{exc}: {op['op_id']}")
+            continue
+        hits.append((paragraph, start, end))
     if len(hits) != 1:
         _fail(f"before text must occur exactly once within one paragraph: {op['op_id']}")
     return hits[0]
@@ -257,10 +276,15 @@ def _prepare(data, operations, kind):
                 _fail(f"Operation requires nonempty {key}")
         if op["op_id"] in op_ids: _fail("Duplicate op_id")
         op_ids.add(op["op_id"])
-        if op["kind"] not in {"replace_text", "comment"}: _fail("Unsupported operation kind")
+        if op["kind"] not in {"replace_text", "comment", "highlight"}: _fail("Unsupported operation kind")
         if op["kind"] == "replace_text":
             if not isinstance(op.get("after"), str): _fail("Replacement requires string after")
             if op["after"] == op["before"]: _fail("Replacement before and after are identical")
+        elif op["kind"] == "highlight":
+            if op.get("color") != "yellow": _fail("Only yellow highlight is supported")
+            if "after" in op and op["after"] != op["before"]:
+                _fail("Highlight cannot change text; omit after or keep it equal to before")
+            op["after"] = op["before"]
         else:
             comment = op.get("after") or op.get("reason")
             if not isinstance(comment, str) or not comment.strip(): _fail("Comment requires text in after or reason")
@@ -295,6 +319,9 @@ def _prepare(data, operations, kind):
                 contains = comment["start"] <= replacement["start"] and comment["end"] >= replacement["end"]
                 if overlap and not contains:
                     _fail("Comment boundary cuts through a replacement; use the whole replacement range")
+        for highlight in (e for e in entries if e["op"]["kind"] == "highlight"):
+            if any(highlight["start"] < r["end"] and r["start"] < highlight["end"] for r in replacements):
+                _fail("Retained highlight span overlaps a replacement")
     return roots, prepared, grouped
 
 
@@ -367,6 +394,71 @@ def _replace_ppt(entry):
         length = right - left if number < len(segments) - 1 else len(remaining)
         new, remaining = remaining[:length], remaining[length:]
         node.text = old[:left] + new + old[right:]
+
+
+def _translated_position(position, replacements):
+    return position + sum(len(r["op"]["after"]) - (r["end"] - r["start"])
+                          for r in replacements if r["end"] <= position)
+
+
+def _set_run_highlight(run, kind):
+    """Insert the native run property in schema order, preserving other styles."""
+    namespace = W if kind == "docx" else A
+    properties = run.find(f"{{{namespace}}}rPr")
+    if properties is None:
+        properties = etree.Element(f"{{{namespace}}}rPr")
+        run.insert(0, properties)
+    old = properties.findall(f"{{{namespace}}}highlight")
+    mark = etree.Element(f"{{{namespace}}}highlight")
+    if kind == "docx":
+        mark.set(f"{{{W}}}val", "yellow")
+        later = {"u", "effect", "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em",
+                 "lang", "eastAsianLayout", "specVanish", "oMath", "rPrChange"}
+    else:
+        etree.SubElement(mark, f"{{{A}}}srgbClr", val="FFFF00")
+        later = {"uLnTx", "uLn", "uFillTx", "uFill", "latin", "ea", "cs", "sym",
+                 "hlinkClick", "hlinkMouseOver", "rtl", "extLst"}
+    if old:
+        index = properties.index(old[0])
+        for node in old: properties.remove(node)
+    else:
+        index = next((i for i, child in enumerate(properties)
+                      if etree.QName(child).localname in later), len(properties))
+    properties.insert(index, mark)
+
+
+def _ppt_run_piece(run, text):
+    if (len(run.findall(f"{{{A}}}t")) != 1 or
+            any(child.tag not in {f"{{{A}}}rPr", f"{{{A}}}t"} for child in run)):
+        _fail("Manual review required: unsupported PPT run structure for precise highlight")
+    piece = deepcopy(run)
+    piece.tail = None
+    piece.find(f"{{{A}}}t").text = text
+    return piece
+
+
+def _highlight_range(entry, kind, replacements):
+    paragraph = entry["paragraph"]
+    start = _translated_position(entry["start"], replacements)
+    end = _translated_position(entry["end"], replacements)
+    segments = (_word_segments(paragraph, start, end) if kind == "docx"
+                else [(node.getparent(), lo, hi, value)
+                      for node, lo, hi, value in _ppt_segments(paragraph, start, end)])
+    piece_factory = _run_piece if kind == "docx" else _ppt_run_piece
+    for run, lo, hi, value in segments:
+        left, right = max(0, start - lo), min(len(value), end - lo)
+        pieces = []
+        if left: pieces.append(piece_factory(run, value[:left]))
+        highlighted = piece_factory(run, value[left:right])
+        _set_run_highlight(highlighted, kind)
+        pieces.append(highlighted)
+        if right < len(value): pieces.append(piece_factory(run, value[right:]))
+        index, tail = paragraph.index(run), run.tail
+        paragraph.remove(run)
+        for offset, piece in enumerate(pieces): paragraph.insert(index + offset, piece)
+        pieces[-1].tail = tail
+    return {"color": "yellow", "applied_start": start, "applied_end": end,
+            "highlight_text": entry["op"]["before"]}
 
 
 def _child_word_text(child):
@@ -487,13 +579,11 @@ def _add_comment(entry, roots, data, ids, author, timestamp, replacements):
             text_node.text = fragment
             if fragment[:1].isspace() or fragment[-1:].isspace():
                 text_node.set(f"{{{XML}}}space", "preserve")
-    def translated(position):
-        return position + sum(len(r["op"]["after"]) - (r["end"] - r["start"])
-                              for r in replacements if r["end"] <= position)
-    _anchor_comment(entry["paragraph"], translated(entry["start"]), translated(entry["end"]), comment_id)
+    start, end = (_translated_position(entry[key], replacements) for key in ("start", "end"))
+    _anchor_comment(entry["paragraph"], start, end, comment_id)
     _relationship(roots, data, "word/document.xml", "comments", "comments.xml")
     _content_type(roots, data, name, "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml")
-    return {"comment_id": comment_id}
+    return {"comment_id": comment_id, "applied_start": start, "applied_end": end}
 
 
 def _ppt_annotation_part(roots, data, owner, kind, default_part, tag):
@@ -618,9 +708,15 @@ def _build(data, operations, kind, author):
         for entry in replacements:
             detail = (_replace_word(entry, ids, author, timestamp) if kind == "docx" else _replace_ppt(entry)) or {}
             results[entry["op"]["op_id"]] = detail
+        for entry in (e for e in entries if e["op"]["kind"] == "highlight"):
+            results[entry["op"]["op_id"]] = _highlight_range(entry, kind, replacements)
         for entry in (e for e in entries if e["op"]["kind"] == "comment"):
             results[entry["op"]["op_id"]] = (_add_comment(entry, roots, data, ids, author, timestamp, replacements)
                 if kind == 'docx' else _add_ppt_comment(entry, roots, data, ppt_state, timestamp))
+            if kind == "pptx":
+                results[entry["op"]["op_id"]].update(
+                    applied_start=_translated_position(entry["start"], replacements),
+                    applied_end=_translated_position(entry["end"], replacements))
     if kind == "docx" and any(e["op"]["kind"] == "replace_text" for e in prepared):
         _enable_tracking(roots, data)
     updated = dict(data)
@@ -633,7 +729,8 @@ def _build(data, operations, kind, author):
         op = entry["op"]
         operation_results.append({"op_id": op["op_id"], "status": "applied", "kind": op["kind"],
             "part": op["part"], "xpath": op["xpath"], "region_id": op.get("region_id"),
-            "before": op["before"], "after": op["after"], **results[op["op_id"]]})
+            "before": op["before"], "after": op["after"],
+            "source_start": entry["start"], "source_end": entry["end"], **results[op["op_id"]]})
     return updated, operation_results
 
 
@@ -757,6 +854,103 @@ def _validate_comment_anchors(source, output, operations, results):
     return issues
 
 
+def _property_signature(node):
+    """Namespace-independent structure, without serialization whitespace."""
+    return (node.tag, tuple(sorted(node.attrib.items())), node.text or "",
+            tuple(_property_signature(child) for child in node))
+
+
+def _read_highlight_characters(paragraph, kind):
+    """Independent accepted-text walker with each character's original style.
+
+    This intentionally avoids the authoring text/segment/translation helpers.
+    Run identity is retained only to model replacement style allocation.
+    """
+    uri = W if kind == "docx" else A
+    characters = []
+
+    def visit(node, run=None):
+        if kind == "docx":
+            if node.tag in {f"{{{W}}}del", f"{{{W}}}moveFrom"}: return
+            if node is not paragraph and node.tag == f"{{{W}}}p": return
+        if node.tag in {f"{{{uri}}}r", f"{{{A}}}br"}: run = node
+        token = None
+        if node.tag == f"{{{uri}}}t": token = node.text or ""
+        elif kind == "docx" and node.tag == f"{{{W}}}tab": token = "\t"
+        elif node.tag in ({f"{{{W}}}br", f"{{{W}}}cr"} if kind == "docx" else {f"{{{A}}}br"}): token = "\n"
+        if token is not None:
+            props = run.find(f"{{{uri}}}rPr") if run is not None else None
+            children = list(props) if props is not None else []
+            marks = tuple(_property_signature(c) for c in children if c.tag == f"{{{uri}}}highlight")
+            style = (tuple(sorted(run.attrib.items())) if run is not None else (),
+                     tuple(sorted(props.attrib.items())) if props is not None else (),
+                     tuple(_property_signature(c) for c in children if c.tag != f"{{{uri}}}highlight"))
+            characters.extend((character, style, marks, run) for character in token)
+        for child in node: visit(child, run)
+
+    visit(paragraph)
+    return characters
+
+
+def _validate_highlights(source, output, operations, kind):
+    """Verify actual marks and preserved styles independently of XML replay."""
+    if not any(op.get("kind") == "highlight" for op in operations): return []
+    _, _, grouped = _prepare(source, operations, kind)
+    yellow = (((f"{{{W}}}highlight", ((f"{{{W}}}val", "yellow"),), "", ()),)
+              if kind == "docx" else
+              ((f"{{{A}}}highlight", (), "", ((f"{{{A}}}srgbClr", (("val", "FFFF00"),), "", ()),)),))
+    issues, parsed = [], {}
+    for (part, paragraph_xpath), entries in grouped.items():
+        highlights = [e for e in entries if e["op"]["kind"] == "highlight"]
+        if not highlights or part not in output: continue
+        if part not in parsed: parsed[part] = _parse(output[part], part)
+        root = parsed[part]
+        ns = dict(NS)
+        ns.update({key: value for key, value in root.nsmap.items() if key})
+        matches = root.xpath(paragraph_xpath, namespaces=ns)
+        if len(matches) != 1:
+            issues.append({"code": "highlight_paragraph_missing", "part": part})
+            continue
+        original = _read_highlight_characters(entries[0]["paragraph"], kind)
+        actual = _read_highlight_characters(matches[0], kind)
+        marked = {i for entry in highlights for i in range(entry["start"], entry["end"])}
+        expected = []
+        cursor = 0
+
+        def keep(left, right):
+            for i in range(left, right):
+                char, style, old_mark, _ = original[i]
+                expected.append((char, style, yellow if i in marked else old_mark))
+
+        for replacement in sorted((e for e in entries if e["op"]["kind"] == "replace_text"), key=lambda e: e["start"]):
+            left, right = replacement["start"], replacement["end"]
+            keep(cursor, left)
+            # The writer distributes the new characters across the original
+            # runs in order; the last run receives the remaining characters.
+            styles = []
+            for record in original[left:right]:
+                if not styles or record[3] is not styles[-1][0]:
+                    styles.append([record[3], record[1], record[2], 1])
+                else: styles[-1][3] += 1
+            remaining = replacement["op"]["after"]
+            for index, (_, style, mark, length) in enumerate(styles):
+                length = length if index < len(styles) - 1 else len(remaining)
+                fragment, remaining = remaining[:length], remaining[length:]
+                expected.extend((char, style, mark) for char in fragment)
+            cursor = right
+        keep(cursor, len(original))
+        expected_text, actual_text = "".join(r[0] for r in expected), "".join(r[0] for r in actual)
+        op_ids = [e["op"]["op_id"] for e in highlights]
+        if actual_text != expected_text:
+            issues.append({"code": "highlight_text_mismatch", "part": part, "op_ids": op_ids})
+            continue
+        for code, index in (("highlight_style_mismatch", 1), ("highlight_range_mismatch", 2)):
+            mismatch = next((i for i, (wanted, found) in enumerate(zip(expected, actual)) if wanted[index] != found[index]), None)
+            if mismatch is not None:
+                issues.append({"code": code, "part": part, "op_ids": op_ids, "position": mismatch})
+    return issues
+
+
 def _validate_data(source, output, operations, kind):
     expected, results = _build(source, operations, kind, "validation")
     issues = []
@@ -783,6 +977,10 @@ def _validate_data(source, output, operations, kind):
             issues.extend(_validate_comment_anchors(source, output, operations, results))
         except PatchPlanError as exc:
             issues.append({"code": "comment_anchor_validation_error", "message": str(exc)})
+    try:
+        issues.extend(_validate_highlights(source, output, operations, kind))
+    except PatchPlanError as exc:
+        issues.append({"code": "highlight_validation_error", "message": str(exc)})
     for result in results:
         related = {result['part'], result.get('comment_part'), result.get('author_part')}
         result["passed"] = not any(i.get("part") in related for i in issues)

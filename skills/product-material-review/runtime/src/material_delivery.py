@@ -14,7 +14,14 @@ KINDS = {'ppt', 'poster', 'onepager'}
 
 def retained_requirement_ids(checked, material_id, slot_ids=None):
     return sorted(rid for rid, source in checked.get('template_retentions', {}).items()
-                  if source['material_id'] == material_id and (slot_ids is None or source['slot_id'] in slot_ids))
+                  if source.get('status','template_retained') == 'template_retained'
+                  and source['material_id'] == material_id and (slot_ids is None or source['slot_id'] in slot_ids))
+
+
+def pending_requirement_ids(checked, material_id, slot_ids=None):
+    return sorted(rid for rid, source in checked.get('template_retentions', {}).items()
+                  if source.get('status') == 'template_pending'
+                  and source['material_id'] == material_id and (slot_ids is None or source['slot_id'] in slot_ids))
 
 
 def content_status(pending, retained_ids):
@@ -359,6 +366,7 @@ def build_deliveries(task, result, output_dir):
                 item.update(pages=exported['pages'], content_status=exported['content_status'],
                             pending_slot_ids=exported.get('pending_slot_ids', []),
                             template_retained_requirement_ids=exported.get('template_retained_requirement_ids', []),
+                            template_pending_requirement_ids=exported.get('template_pending_requirement_ids', []),
                             manifest=exported.get('manifest'))
             elif Path(material['source']['path']).suffix.lower() == '.docx':
                 if plan.get('pages') is not None:
@@ -375,6 +383,7 @@ def build_deliveries(task, result, output_dir):
                 retained_ids = retained_requirement_ids(checked, mid)
                 item.update(content_status=content_status(pending, retained_ids),
                             template_retained_requirement_ids=retained_ids,
+                            template_pending_requirement_ids=pending_requirement_ids(checked, mid),
                             pending_slot_ids=pending_slots)
             else:
                 raise ReviewError('交付仅支持DOCX和PPTX')
@@ -448,6 +457,8 @@ def validate_deliveries(task, result):
                     raise ReviewError('交付待核状态与重新核实结果不一致')
                 if item.get('template_retained_requirement_ids',[]) != expected.get('template_retained_requirement_ids',[]):
                     raise ReviewError('PPT交付模板保留清单不正确')
+                if item.get('template_pending_requirement_ids',[]) != expected.get('template_pending_requirement_ids',[]):
+                    raise ReviewError('PPT交付局部标黄待核清单不正确')
                 verified = validate_slide_delivery(record['output'], output, expected['pages'])
                 if not verified['valid']:
                     raise ReviewError('PPT实际交付子集不一致：' + str(verified['errors']))
@@ -462,6 +473,8 @@ def validate_deliveries(task, result):
                 retained_ids = retained_requirement_ids(checked, mid)
                 if item.get('template_retained_requirement_ids',[]) != retained_ids:
                     raise ReviewError('交付模板保留清单与审阅记录不一致')
+                if item.get('template_pending_requirement_ids',[]) != pending_requirement_ids(checked, mid):
+                    raise ReviewError('交付局部标黄待核清单与审阅记录不一致')
                 if item.get('content_status') != content_status(pending, retained_ids) or item.get('pending_slot_ids') != pending_slots:
                     raise ReviewError('Word交付待核状态不正确')
         except (ValueError, OSError, KeyError, TypeError) as exc:
